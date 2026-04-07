@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <meta name="theme-color" content="#3B82F6"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <link rel="manifest" href="manifest.json"/>
+  <title>Conteo - Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: #F3F4F6; }
+    .spin { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import { createElement as h, useState, useEffect } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
+    import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
+
+    const B = '#3B82F6', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F4', G = '#10B981', GL = '#F0FDF4', Y = '#F59E0B', YL = '#FFFBEB';
+
+    const d = (tag, props, ...kids) => h(tag, props, ...kids.flat());
+    const Spinner = ({ size = 15 }) => d('div', { className: 'spin', style: { width: size, height: size } });
+
+    const supabaseUrl = 'https://jeupnfxzawgrtddnhvij.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpldXBuZnh6YXdncnRkZG5odmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODY5NTgsImV4cCI6MjA5MTA2Mjk1OH0.qmABLeL-3iJ3f6l7GdDnEshweuUtSM5YRSTSzby9N0g';
+
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? match[2] : null;
+    }
+
+    function setCookie(name, value, days = 365) {
+      document.cookie = `${name}=${value};path=/;max-age=${days * 24 * 60 * 60};SameSite=Lax`;
+    }
+
+    function getDeviceId() {
+      let id = getCookie('device_id');
+      if (!id) {
+        id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        setCookie('device_id', id);
+      }
+      return id;
+    }
+
+    function getSesion() {
+      const sesion = getCookie('sesion');
+      return sesion ? JSON.parse(sesion) : null;
+    }
+
+    function guardarSesion(usuario) {
+      setCookie('sesion', JSON.stringify(usuario), 30);
+    }
+
+    /* PANTALLA DE REGISTRO - Solo para la primera vez */
+    function RegistroScreen({ onRegistrado, onBack }) {
+      const [email, setEmail] = useState('');
+      const [codigo, setCodigo] = useState('');
+      const [error, setError] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      const handleRegistro = async (e) => {
+        e?.preventDefault();
+        if (!email || !codigo) { setError('Completá todos los campos'); return; }
+        setLoading(true);
+        setError('');
+
+        try {
+          const deviceId = getDeviceId();
+
+          const res = await fetch(`${supabaseUrl}/rest/v1/licencias?codigo=eq.${encodeURIComponent(codigo)}&activa=eq.true&select=*`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          const licencias = await res.json();
+
+          if (!licencias || licencias.length === 0) {
+            setError('Código de licencia inválido o inactivo');
+            setLoading(false);
+            return;
+          }
+
+          const licencia = licencias[0];
+
+          const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&select=id`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          const dispositivo = await devRes.json();
+
+          if (dispositivo && dispositivo.length > 0) {
+            setError('Esta terminal ya está registrada. Usá login con tu email y contraseña.');
+            setLoading(false);
+            return;
+          }
+
+          const userRes = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&licencia_id=eq.${licencia.id}&select=id,nombre,email,rol,estado,licencia_id`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          const userExistente = await userRes.json();
+
+          let usuario;
+
+          if (userExistente && userExistente.length > 0) {
+            if (userExistente[0].estado === 'INACTIVO') {
+              setError('Este usuario está desactivado. Contactá al administrador.');
+              setLoading(false);
+              return;
+            }
+            usuario = userExistente[0];
+          } else {
+            const password = Math.random().toString(36).substr(2, 8);
+
+            const createRes = await fetch(`${supabaseUrl}/rest/v1/perfiles`, {
+              method: 'POST',
+              headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+              body: JSON.stringify({
+                licencia_id: licencia.id,
+                email,
+                password,
+                nombre: email.split('@')[0],
+                rol: 'administrador',
+                estado: 'ACTIVO'
+              })
+            });
+            
+            if (!createRes.ok) {
+              const errText = await createRes.text();
+              console.error('Error creando usuario:', createRes.status, errText);
+              throw new Error('No se pudo crear el usuario');
+            }
+            
+            const nuevo = await createRes.json();
+            usuario = nuevo[0];
+            setCookie('temp_password', password, 7);
+          }
+
+          // Registrar dispositivo
+          const regDevRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos`, {
+            method: 'POST',
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              licencia_id: licencia.id,
+              dispositivo_id: deviceId,
+              nombre_dispositivo: navigator.userAgent.substring(0, 100)
+            })
+          });
+          
+          if (!regDevRes.ok) {
+            const errText = await regDevRes.text();
+            console.error('Error registrando dispositivo:', regDevRes.status, errText);
+          }
+
+          guardarSesion(usuario);
+          onRegistrado(usuario);
+
+        } catch (err) {
+          console.error(err);
+          setError('Error de conexión: ' + (err.message || 'Verificá que la tabla dispositivos exista'));
+        }
+        setLoading(false);
+      };
+
+      return d('div', { style: { minHeight: '100vh', background: '#F3F4F6', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 } },
+        d('div', { style: { width: '100%', maxWidth: 400 } },
+          d('div', { style: { textAlign: 'center', marginBottom: 40 } },
+            d('div', { style: { width: 72, height: 72, background: B, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 32px rgba(59,130,246,0.3)' } },
+              d('svg', { width: 36, height: 36, viewBox: '0 0 24 24', fill: 'none', stroke: '#fff', strokeWidth: 2, strokeLinecap: 'square' },
+                d('path', { d: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z' }),
+                d('polyline', { points: '3.27 6.96 12 12.01 20.73 6.96' }), d('line', { x1: 12, y1: '22.08', x2: 12, y2: 12 })
+              )
+            ),
+            d('h1', { style: { fontSize: 26, fontWeight: 700, color: '#111827', marginBottom: 8 } }, 'Registro de Dispositivo'),
+            d('p', { style: { fontSize: 14, color: '#6B7280' } }, 'Activá tu terminal con tu licencia')
+          ),
+          error && d('div', { style: { background: RL, border: `1px solid ${R}`, borderRadius: 8, padding: '12px 14px', fontSize: 13, color: RD, marginBottom: 16 } }, error),
+          d('form', { onSubmit: handleRegistro, style: { background: '#fff', borderRadius: 16, padding: 28, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' } },
+            d('div', { style: { marginBottom: 20 } },
+              d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 } }, 'Email'),
+              d('input', { type: 'email', placeholder: 'admin@empresa.com', value: email, onChange: e => setEmail(e.target.value), autoComplete: 'username', style: { width: '100%', height: 52, border: `2px solid ${email ? B : '#E5E7EB'}`, borderRadius: 10, padding: '0 16px', fontSize: 16, color: '#111827', background: '#F9FAFB', outline: 'none', transition: 'border-color 0.2s' } })
+            ),
+            d('div', { style: { marginBottom: 24 } },
+              d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 } }, 'Código de Licencia'),
+              d('input', { type: 'text', placeholder: 'CNT-XXXX-XXXX', value: codigo, onChange: e => setCodigo(e.target.value.toUpperCase()), autoComplete: 'off', style: { width: '100%', height: 52, border: `2px solid ${codigo ? B : '#E5E7EB'}`, borderRadius: 10, padding: '0 16px', fontSize: 16, color: '#111827', background: '#F9FAFB', outline: 'none', fontFamily: "'DM Mono',monospace", letterSpacing: '0.15em', transition: 'border-color 0.2s' } })
+            ),
+            d('button', { type: 'submit', disabled: loading, style: { width: '100%', height: 52, background: loading ? '#93C5FD' : B, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 16, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'background 0.2s' } },
+              loading ? [h(Spinner), ' Verificando...'] : 'Activar Terminal'
+            )
+          ),
+          d('div', { style: { textAlign: 'center', marginTop: 20 } },
+            d('button', { type: 'button', onClick: onBack, style: { background: 'none', border: 'none', color: '#6B7280', fontSize: 13, cursor: 'pointer', fontWeight: 500 } }, '¿Ya tenés cuenta? Iniciar sesión')
+          )
+        )
+      );
+    }
+
+    /* PANTALLA DE CONTRASEÑA */
+    function PasswordTemporalScreen({ usuario, onContinuar }) {
+      const tempPwd = getCookie('temp_password');
+
+      return d('div', { style: { minHeight: '100vh', background: '#F3F4F6', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 } },
+        d('div', { style: { width: '100%', maxWidth: 400 } },
+          d('div', { style: { textAlign: 'center', marginBottom: 32 } },
+            d('div', { style: { width: 72, height: 72, background: G, borderRadius: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 32px rgba(16,185,129,0.3)' } },
+              d('svg', { width: 36, height: 36, viewBox: '0 0 24 24', fill: 'none', stroke: '#fff', strokeWidth: 2, strokeLinecap: 'square' },
+                d('polyline', { points: '20 6 9 17 4 12' })
+              )
+            ),
+            d('h1', { style: { fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 8 } }, '¡Terminal Activada!'),
+            d('p', { style: { fontSize: 14, color: '#6B7280' } }, 'Guardá tu contraseña para futuros ingresos')
+          ),
+          tempPwd && d('div', { style: { background: YL, border: '2px solid #FCD34D', borderRadius: 12, padding: 24, marginBottom: 24 } },
+            d('p', { style: { fontSize: 11, fontWeight: 700, color: '#92400E', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'Tu contraseña (guardala)'),
+            d('p', { style: { fontSize: 32, fontWeight: 700, color: '#111827', fontFamily: "'DM Mono',monospace", letterSpacing: '0.15em', wordBreak: 'break-all' } }, tempPwd)
+          ),
+          d('div', { style: { background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: 24 } },
+            d('p', { style: { fontSize: 14, color: '#6B7280', lineHeight: 1.6 } },
+              'Usá esta contraseña para iniciar sesión. Si necesitás crear más usuarios, hacelo desde el panel de administración.'
+            )
+          ),
+          d('button', { onClick: onContinuar, style: { width: '100%', height: 52, background: G, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' } }, 'Ir al Panel')
+        )
+      );
+    }
+
+    /* PANTALLA DE LOGIN */
+    function LoginScreen({ onGoRegistro }) {
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const [error, setError] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      const handleLogin = async (e) => {
+        e?.preventDefault();
+        if (!email || !password) { setError('Completá todos los campos'); return; }
+        setLoading(true);
+        setError('');
+
+        try {
+          const res = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}&estado=eq.ACTIVO&select=id,nombre,email,rol,estado,licencia_id`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          const data = await res.json();
+
+          if (data && data.length > 0) {
+            guardarSesion(data[0]);
+            window.location.href = 'admin.html';
+          } else {
+            setError('Email o contraseña incorrectos');
+          }
+        } catch (err) {
+          setError('Error de conexión');
+        }
+        setLoading(false);
+      };
+
+      return d('div', { style: { minHeight: '100vh', background: '#F3F4F6', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 } },
+        d('div', { style: { width: '100%', maxWidth: 380 } },
+          d('div', { style: { textAlign: 'center', marginBottom: 40 } },
+            d('div', { style: { width: 64, height: 64, background: B, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 8px 32px rgba(59,130,246,0.3)' } },
+              d('svg', { width: 32, height: 32, viewBox: '0 0 24 24', fill: 'none', stroke: '#fff', strokeWidth: 2, strokeLinecap: 'square' },
+                d('path', { d: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z' }),
+                d('polyline', { points: '3.27 6.96 12 12.01 20.73 6.96' }), d('line', { x1: 12, y1: '22.08', x2: 12, y2: 12 })
+              )
+            ),
+            d('h1', { style: { fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 8 } }, 'Conteo de Inventario'),
+            d('p', { style: { fontSize: 14, color: '#6B7280' } }, 'Ingresá tus credenciales')
+          ),
+          error && d('div', { style: { background: RL, border: `1px solid ${R}`, borderRadius: 8, padding: '12px 14px', fontSize: 13, color: RD, marginBottom: 16 } }, error),
+          d('form', { onSubmit: handleLogin, style: { background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' } },
+            d('div', { style: { marginBottom: 16 } },
+              d('label', { style: { display: 'block', fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 } }, 'Email'),
+              d('input', { type: 'email', placeholder: 'su@email.com', value: email, onChange: e => setEmail(e.target.value), autoComplete: 'username', style: { width: '100%', height: 48, border: `2px solid ${email ? B : '#E5E7EB'}`, borderRadius: 8, padding: '0 16px', fontSize: 15, color: '#111827', background: '#F9FAFB', outline: 'none' } })
+            ),
+            d('div', { style: { marginBottom: 24 } },
+              d('label', { style: { display: 'block', fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 } }, 'Contraseña'),
+              d('input', { type: 'password', placeholder: '••••••', value: password, onChange: e => setPassword(e.target.value), autoComplete: 'current-password', style: { width: '100%', height: 48, border: `2px solid ${password ? B : '#E5E7EB'}`, borderRadius: 8, padding: '0 16px', fontSize: 15, color: '#111827', background: '#F9FAFB', outline: 'none' } })
+            ),
+            d('button', { type: 'submit', disabled: loading, style: { width: '100%', height: 48, background: loading ? '#93C5FD' : B, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 } },
+              loading ? [h(Spinner), ' Verificando...'] : 'Iniciar Sesión'
+            )
+          ),
+          onGoRegistro && d('div', { style: { textAlign: 'center', marginTop: 20 } },
+            d('button', { type: 'button', onClick: onGoRegistro, style: { background: 'none', border: 'none', color: '#6B7280', fontSize: 13, cursor: 'pointer', fontWeight: 500 } }, '¿Primera vez? Activar terminal')
+          )
+        )
+      );
+    }
+
+    /* APP */
+    function App() {
+      const [paso, setPaso] = useState('checking');
+
+      useEffect(() => {
+        getDeviceId();
+        const tempPwd = getCookie('temp_password');
+        const sesion = getSesion();
+
+        if (sesion) {
+          if (tempPwd) {
+            setPaso('password-temporal');
+          } else {
+            window.location.href = 'admin.html';
+          }
+        } else {
+          setPaso('login');
+        }
+      }, []);
+
+      if (paso === 'checking') {
+        return d('div', { style: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F3F4F6' } },
+          d('div', { className: 'spin', style: { width: 30, height: 30, border: '3px solid #E5E7EB', borderTopColor: B } })
+        );
+      }
+
+      if (paso === 'password-temporal') {
+        return h(PasswordTemporalScreen, {
+          usuario: getSesion(),
+          onContinuar: () => {
+            document.cookie = 'temp_password=;path=/;max-age=0';
+            window.location.href = 'admin.html';
+          }
+        });
+      }
+
+      if (paso === 'registro') {
+        return h(RegistroScreen, {
+          onRegistrado: (usuario) => setPaso('password-temporal'),
+          onBack: () => setPaso('login')
+        });
+      }
+
+      return d('div', null,
+        h(LoginScreen, { onGoRegistro: () => setPaso('registro') }),
+        d('div', { style: { textAlign: 'center', marginTop: 24 } },
+          d('p', { style: { fontSize: 14, color: '#6B7280' } }, '¿Primera vez en esta terminal?'),
+          d('button', { onClick: () => setPaso('registro'), style: { background: 'none', border: 'none', color: B, fontWeight: 600, fontSize: 14, cursor: 'pointer', marginTop: 4 } }, 'Activar terminal con licencia')
+        )
+      );
+    }
+
+    createRoot(document.getElementById('root')).render(h(App, null));
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+    }
+  </script>
+</body>
+</html>

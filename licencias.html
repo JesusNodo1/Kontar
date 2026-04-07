@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="theme-color" content="#1E293B"/>
+  <title>Gestión de Licencias - Conteo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: #F8FAFC; }
+    .spin { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import { createElement as h, useState, useEffect } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
+    import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
+
+    const B = '#3B82F6', G = '#10B981', GD = '#059669', GL = '#F0FDF4', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F2', Y = '#F59E0B', YL = '#FFFBEB', BL = '#EFF6FF';
+
+    const d = (tag, props, ...kids) => h(tag, props, ...kids.flat());
+    const Spinner = ({ size = 20 }) => d('div', { className: 'spin', style: { width: size, height: size } });
+
+    const IconPlus = () => d('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('line', { x1: 12, y1: 5, x2: 12, y2: 19 }), d('line', { x1: 5, y1: 12, x2: 19, y2: 12 }));
+    const IconX = () => d('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('line', { x1: 18, y1: 6, x2: 6, y2: 18 }), d('line', { x1: 6, y1: 6, x2: 18, y2: 18 }));
+    const IconCopy = () => d('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('rect', { x: 9, y: 9, width: 13, height: 13 }), d('path', { d: 'M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1' }));
+    const IconCheck = () => d('svg', { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('polyline', { points: '20 6 9 17 4 12' }));
+
+    const supabaseUrl = 'https://jeupnfxzawgrtddnhvij.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpldXBuZnh6YXdncnRkZG5odmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODY5NTgsImV4cCI6MjA5MTA2Mjk1OH0.qmABLeL-3iJ3f6l7GdDnEshweuUtSM5YRSTSzby9N0g';
+
+    async function apiGet(tabla, params = '') {
+      try {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}?select=*&order=id${params}`, {
+          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (e) {
+        console.error('API GET error:', e);
+        return [];
+      }
+    }
+
+    async function apiPost(tabla, data) {
+      try {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}`, {
+          method: 'POST',
+          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (e) {
+        console.error('API POST error:', e);
+        return [];
+      }
+    }
+
+    async function apiPatch(tabla, params, data) {
+      try {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}${params}`, {
+          method: 'PATCH',
+          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (e) {
+        console.error('API PATCH error:', e);
+        return [];
+      }
+    }
+
+    function generarCodigo() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let c = 'CNT-';
+      for (let i = 0; i < 4; i++) c += chars[Math.floor(Math.random() * chars.length)];
+      c += '-';
+      for (let i = 0; i < 4; i++) c += chars[Math.floor(Math.random() * chars.length)];
+      return c;
+    }
+
+    function generarPassword() {
+      const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+      let p = '';
+      for (let i = 0; i < 8; i++) p += chars[Math.floor(Math.random() * chars.length)];
+      return p;
+    }
+
+    /* LOGIN */
+    function Login({ onLogin }) {
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const [error, setError] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      const handleLogin = async () => {
+        if (!email || !password) { setError('Completá todos los campos'); return; }
+        setLoading(true);
+        setError('');
+        try {
+          const res = await fetch(`${supabaseUrl}/rest/v1/usuarios_admin?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}&select=*`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          const data = await res.json();
+          if (data && data.length > 0) onLogin(data[0]);
+          else setError('Credenciales incorrectas');
+        } catch { setError('Error de conexión'); }
+        setLoading(false);
+      };
+
+      return d('div', { style: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC' } },
+        d('div', { style: { background: '#fff', padding: 40, borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', width: '100%', maxWidth: 400 } },
+          d('div', { style: { textAlign: 'center', marginBottom: 32 } },
+            d('div', { style: { width: 64, height: 64, background: B, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' } },
+              d('svg', { width: 32, height: 32, viewBox: '0 0 24 24', fill: 'none', stroke: '#fff', strokeWidth: 2 }, d('path', { d: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z' }))
+            ),
+            d('h1', { style: { fontSize: 24, fontWeight: 700, color: '#111827' } }, 'Gestión de Licencias'),
+            d('p', { style: { fontSize: 14, color: '#6B7280' } }, 'Acceso restringido al vendedor')
+          ),
+          error && d('div', { style: { background: RL, border: '1px solid #FECACA', padding: 12, borderRadius: 8, marginBottom: 20, color: RD, fontSize: 14 } }, error),
+          d('div', { style: { marginBottom: 16 } },
+            d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 6 } }, 'Email'),
+            d('input', { type: 'email', placeholder: 'admin@conteo.com', value: email, onChange: e => setEmail(e.target.value), style: { width: '100%', height: 48, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 16px', fontSize: 14 } })
+          ),
+          d('div', { style: { marginBottom: 24 } },
+            d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 6 } }, 'Contraseña'),
+            d('input', { type: 'password', placeholder: '••••••', value: password, onChange: e => setPassword(e.target.value), onKeyDown: e => e.key === 'Enter' && handleLogin(), style: { width: '100%', height: 48, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 16px', fontSize: 14 } })
+          ),
+          d('button', { onClick: handleLogin, disabled: loading, style: { width: '100%', padding: 16, background: B, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' } },
+            loading ? [h(Spinner), ' Ingresando...'] : 'Ingresar'
+          )
+        )
+      );
+    }
+
+    /* HEADER */
+    function Header({ user, onLogout }) {
+      return d('div', { style: { background: '#1E293B', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+        d('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
+          d('div', { style: { width: 40, height: 40, background: B, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+            d('svg', { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: '#fff', strokeWidth: 2 }, d('path', { d: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z' }))
+          ),
+          d('div', null,
+            d('div', { style: { fontWeight: 700, fontSize: 18, color: '#fff' } }, 'Gestión de Licencias'),
+            d('div', { style: { fontSize: 11, color: '#64748B' } }, 'Panel de Administración')
+          )
+        ),
+        d('div', { style: { display: 'flex', alignItems: 'center', gap: 16 } },
+          d('span', { style: { fontSize: 14, color: '#94A3B8' } }, user.nombre),
+          d('button', { onClick: onLogout, style: { background: 'transparent', border: '1px solid #475569', padding: '8px 16px', borderRadius: 8, color: '#94A3B8', cursor: 'pointer', fontSize: 14 } }, 'Cerrar Sesión')
+        )
+      );
+    }
+
+    /* LICENCIAS */
+    function Licencias() {
+      const [licencias, setLicencias] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [showModal, setShowModal] = useState(false);
+      const [showCred, setShowCred] = useState(null);
+      const [form, setForm] = useState({ nombre_empresa: '', email_cliente: '', telefono: '', limite_dispositivos: 1 });
+      const [saving, setSaving] = useState(false);
+
+      const cargar = async () => { 
+        setLoading(true); 
+        try { 
+          const lics = await apiGet('licencias') || [];
+          const perfiles = await apiGet('perfiles', '&rol=eq.administrador') || [];
+          const withPasswords = lics.map(lic => {
+            const admin = perfiles.find(p => p.licencia_id === lic.id);
+            return { ...lic, password: admin?.password || '' };
+          });
+          setLicencias(withPasswords); 
+        } catch (e) { console.error(e); } 
+        setLoading(false); 
+      };
+
+      useEffect(() => { cargar(); }, []);
+
+      const handleCrear = async () => {
+        if (!form.nombre_empresa || !form.email_cliente) return;
+        setSaving(true);
+        try {
+          const codigo = generarCodigo();
+          const password = generarPassword();
+
+          const lic = await apiPost('licencias', {
+            codigo,
+            nombre_empresa: form.nombre_empresa,
+            email: form.email_cliente,
+            telefono: form.telefono || null,
+            limite_dispositivos: form.limite_dispositivos,
+            activa: true
+          });
+
+          if (!lic || lic.length === 0) throw new Error('No se pudo crear la licencia');
+
+          await apiPost('perfiles', {
+            licencia_id: lic[0].id,
+            email: form.email_cliente,
+            password,
+            nombre: form.nombre_empresa,
+            rol: 'administrador',
+            estado: 'ACTIVO'
+          });
+
+          setShowCred({ codigo, email: form.email_cliente, password });
+          setShowModal(false);
+          setForm({ nombre_empresa: '', email_cliente: '', telefono: '', limite_dispositivos: 1 });
+          cargar();
+        } catch (e) { console.error(e); alert('Error al crear licencia'); }
+        setSaving(false);
+      };
+
+      const copiar = (texto) => { navigator.clipboard.writeText(texto); };
+      const toggleActiva = async (lic) => { await apiPatch('licencias', `?id=eq.${lic.id}`, { activa: !lic.activa }); cargar(); };
+
+      if (loading) return d('div', { style: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, h(Spinner, { size: 40 }));
+
+      return d('div', { style: { padding: 32 } },
+        d('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 } },
+          d('div', null,
+            d('h1', { style: { fontSize: 28, fontWeight: 700, color: '#111827' } }, 'Licencias'),
+            d('p', { style: { fontSize: 14, color: '#6B7280' } }, `${licencias.length} licencias`)
+          ),
+          d('button', { onClick: () => setShowModal(true), style: { padding: '14px 28px', background: B, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 } }, h(IconPlus), 'Nueva Licencia')
+        ),
+
+        // Stats
+        d('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, marginBottom: 32 } },
+          ...[
+            { label: 'Total', value: licencias.length, bg: BL, color: B },
+            { label: 'Activas', value: licencias.filter(l => l.activa).length, bg: GL, color: G },
+            { label: 'Inactivas', value: licencias.filter(l => !l.activa).length, bg: RL, color: R },
+          ].map(({ label, value, bg, color }) => d('div', { key: label, style: { background: bg, padding: 24, borderRadius: 12 } },
+            d('div', { style: { fontSize: 32, fontWeight: 700, color, fontFamily: "'DM Mono',monospace" } }, value),
+            d('div', { style: { fontSize: 13, color: '#6B7280', marginTop: 4 } }, label)
+          ))
+        ),
+
+        // Tabla
+        d('div', { style: { background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } },
+          d('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+            d('thead', null,
+              d('tr', { style: { background: '#F9FAFB' } },
+                ...['Empresa', 'Código Licencia', 'Email Admin', 'Contraseña', 'Dispositivos', 'Estado', 'Acciones'].map((h, i) =>
+                  d('th', { key: i, style: { padding: '16px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '1px solid #E5E7EB' } }, h)
+                )
+              )
+            ),
+            d('tbody', null,
+              licencias.length === 0
+                ? d('tr', null, d('td', { colSpan: 7, style: { padding: 60, textAlign: 'center', color: '#9CA3AF' } }, 'No hay licencias'))
+                : licencias.map((lic, i) => d('tr', { key: lic.id, style: { borderBottom: i < licencias.length - 1 ? '1px solid #F3F4F6' : 'none' } },
+                    d('td', { style: { padding: 20 } }, d('div', { style: { fontWeight: 600, color: '#111827' } }, lic.nombre_empresa)),
+                    d('td', { style: { padding: 20 } },
+                      d('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                        d('code', { style: { background: '#F3F4F6', padding: '4px 8px', borderRadius: 4, fontFamily: "'DM Mono',monospace", fontSize: 13, color: B } }, lic.codigo),
+                        d('button', { onClick: () => copiar(lic.codigo), style: { background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 4 } }, h(IconCopy))
+                      )
+                    ),
+                    d('td', { style: { padding: 20, color: '#6B7280' } }, lic.email),
+                    d('td', { style: { padding: 20 } }, d('span', { style: { fontFamily: "'DM Mono',monospace", fontWeight: 600 } }, lic.password || '—')),
+                    d('td', { style: { padding: 20 } }, d('span', { style: { fontFamily: "'DM Mono',monospace", fontWeight: 600 } }, lic.limite_dispositivos)),
+                    d('td', { style: { padding: 20 } },
+                      d('span', { style: { fontSize: 11, fontWeight: 600, padding: '6px 12px', background: lic.activa ? GL : RL, color: lic.activa ? GD : RD, borderRadius: 20 } }, lic.activa ? 'Activa' : 'Inactiva')
+                    ),
+                    d('td', { style: { padding: 20 } },
+                      d('button', { onClick: () => toggleActiva(lic), style: { padding: '8px 12px', background: lic.activa ? YL : GL, border: 'none', borderRadius: 8, cursor: 'pointer', color: lic.activa ? Y : G, fontSize: 12, fontWeight: 600 } },
+                        lic.activa ? 'Desactivar' : 'Activar'
+                      )
+                    )
+                  ))
+            )
+          )
+        ),
+
+        showModal && d('div', { onClick: e => { if (e.target === e.currentTarget) setShowModal(false) }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+          d('div', { style: { background: '#fff', width: '100%', maxWidth: 480, borderRadius: 16 } },
+            d('div', { style: { padding: '20px 24px', borderBottom: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              d('h2', { style: { fontSize: 18, fontWeight: 600 } }, 'Nueva Licencia'),
+              d('button', { onClick: () => setShowModal(false), style: { background: 'none', border: 'none', cursor: 'pointer' } }, h(IconX))
+            ),
+            d('div', { style: { padding: 24, display: 'flex', flexDirection: 'column', gap: 20 } },
+              ...[
+                { label: 'Nombre de Empresa *', field: 'nombre_empresa', ph: 'Supermercado XYZ' },
+                { label: 'Email Admin (para login) *', field: 'email_cliente', ph: 'admin@empresa.com', type: 'email' },
+                { label: 'Teléfono', field: 'telefono', ph: '+54 11 1234 5678' },
+              ].map(({ label, field, ph, type }) => d('div', { key: field },
+                d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 6 } }, label),
+                d('input', { type: type || 'text', placeholder: ph, value: form[field], onChange: e => setForm(f => ({ ...f, [field]: e.target.value })), style: { width: '100%', height: 44, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 14px' } })
+              )),
+              d('div', null,
+                d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 6 } }, 'Límite de Dispositivos *'),
+                d('input', { type: 'number', min: 1, value: form.limite_dispositivos, onChange: e => setForm(f => ({ ...f, limite_dispositivos: parseInt(e.target.value) || 1 })), style: { width: '100%', height: 44, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 14px' } })
+              )
+            ),
+            d('div', { style: { padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', gap: 12 } },
+              d('button', { onClick: () => setShowModal(false), style: { flex: 1, padding: 14, background: '#F3F4F6', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' } }, 'Cancelar'),
+              d('button', { onClick: handleCrear, disabled: saving || !form.nombre_empresa || !form.email_cliente, style: { flex: 2, padding: 14, background: (!form.nombre_empresa || !form.email_cliente) ? '#93C5FD' : B, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: (!form.nombre_empresa || !form.email_cliente) ? 'not-allowed' : 'pointer' } },
+                saving ? [h(Spinner), ' Creando...'] : 'Crear Licencia'
+              )
+            )
+          )
+        ),
+
+        showCred && d('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+          d('div', { style: { background: '#fff', width: '100%', maxWidth: 480, borderRadius: 16 } },
+            d('div', { style: { padding: '20px 24px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', gap: 12, background: '#F0FDF4' } },
+              h(IconCheck),
+              d('h2', { style: { fontSize: 18, fontWeight: 600, color: '#059669' } }, 'Licencia Creada')
+            ),
+            d('div', { style: { padding: 24 } },
+              d('p', { style: { fontSize: 14, color: '#6B7280', marginBottom: 20 } }, 'Credenciales para el cliente:'),
+              d('div', { style: { background: '#F0FDF4', border: '1px solid #6EE7B7', borderRadius: 12, padding: 16, marginBottom: 12 } },
+                d('div', { style: { fontSize: 11, fontWeight: 600, color: '#059669', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'Código de Licencia'),
+                d('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                  d('span', { style: { fontFamily: "'DM Mono',monospace", fontSize: 18, fontWeight: 600 } }, showCred.codigo),
+                  d('button', { onClick: () => copiar(showCred.codigo), style: { background: '#fff', border: '1px solid #6EE7B7', padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#059669' } }, 'Copiar')
+                )
+              ),
+              d('div', { style: { background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: 16, marginBottom: 12 } },
+                d('div', { style: { fontSize: 11, fontWeight: 600, color: '#2563EB', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'Usuario (Email)'),
+                d('div', { style: { fontFamily: "'DM Mono',monospace", fontSize: 15 } }, showCred.email)
+              ),
+              d('div', { style: { background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: 12, padding: 16, marginBottom: 16 } },
+                d('div', { style: { fontSize: 11, fontWeight: 600, color: '#D97706', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'Contraseña'),
+                d('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                  d('span', { style: { fontFamily: "'DM Mono',monospace", fontSize: 18, fontWeight: 600 } }, showCred.password),
+                  d('button', { onClick: () => copiar(showCred.password), style: { background: '#fff', border: '1px solid #FCD34D', padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#D97706' } }, 'Copiar')
+                )
+              ),
+              d('div', { style: { background: '#F3F4F6', borderRadius: 8, padding: 12, fontSize: 13, color: '#6B7280' } },
+                'El cliente accederá con su email y contraseña al sistema.'
+              )
+            ),
+            d('div', { style: { padding: '16px 24px', borderTop: '1px solid #E5E7EB' } },
+              d('button', { onClick: () => setShowCred(null), style: { width: '100%', padding: 14, background: '#059669', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' } }, 'Entendido')
+            )
+          )
+        )
+      );
+    }
+
+    function App() {
+      const [user, setUser] = useState(null);
+      const handleLogin = (u) => setUser(u);
+      const handleLogout = () => setUser(null);
+      if (!user) return h(Login, { onLogin: handleLogin });
+      return d('div', { style: { minHeight: '100vh', background: '#F8FAFC' } },
+        h(Header, { user, onLogout: handleLogout }),
+        h(Licencias)
+      );
+    }
+
+    createRoot(document.getElementById('root')).render(h(App, null));
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+    }
+  </script>
+</body>
+</html>

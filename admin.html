@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="theme-color" content="#1E293B"/>
+  <title>Conteo - Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: #F8FAFC; }
+    .spin { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import { createElement as h, useState, useEffect } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
+    import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
+
+    const B = '#3B82F6', G = '#10B981', GD = '#059669', GL = '#F0FDF4', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F2', Y = '#F59E0B', YL = '#FFFBEB', BL = '#EFF6FF';
+
+    const d = (tag, props, ...kids) => h(tag, props, ...kids.flat());
+    const Spinner = ({ size = 20 }) => d('div', { className: 'spin', style: { width: size, height: size } });
+
+    const IconBox = () => d('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('path', { d: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z' }));
+    const IconUsers = () => d('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('path', { d: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2' }), d('circle', { cx: 9, cy: 7, r: 4 }), d('path', { d: 'M23 21v-2a4 4 0 00-3-3.87' }), d('path', { d: 'M16 3.13a4 4 0 010 7.75' }));
+    const IconPackage = () => d('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('rect', { x: 3, y: 3, width: 18, height: 18 }), d('path', { d: 'M3 9h18M9 21V9' }));
+    const IconChart = () => d('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('path', { d: 'M18 20V10M12 20V4M6 20v-6' }));
+    const IconPlus = () => d('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('line', { x1: 12, y1: 5, x2: 12, y2: 19 }), d('line', { x1: 5, y1: 12, x2: 19, y2: 12 }));
+    const IconEdit = () => d('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('path', { d: 'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7' }), d('path', { d: 'M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z' }));
+    const IconTrash = () => d('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('polyline', { points: '3 6 5 6 21 6' }), d('path', { d: 'M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2' }));
+    const IconX = () => d('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('line', { x1: 18, y1: 6, x2: 6, y2: 18 }), d('line', { x1: 6, y1: 6, x2: 18, y2: 18 }));
+    const IconLogout = () => d('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('path', { d: 'M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4' }), d('polyline', { points: '16 17 21 12 16 7' }), d('line', { x1: 21, y1: 12, x2: 9, y2: 12 }));
+    const IconSearch = () => d('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('circle', { cx: 11, cy: 11, r: 8 }), d('line', { x1: 21, y1: 21, x2: 16.65, y2: 16.65 }));
+
+    const supabaseUrl = 'https://jeupnfxzawgrtddnhvij.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpldXBuZnh6YXdncnRkZG5odmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODY5NTgsImV4cCI6MjA5MTA2Mjk1OH0.qmABLeL-3iJ3f6l7GdDnEshweuUtSM5YRSTSzby9N0g';
+
+    async function query(tabla, filtro = '') {
+      try {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}${filtro}`, {
+          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+        });
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      } catch (e) {
+        console.error('Query error:', e);
+        return [];
+      }
+    }
+
+    async function insert(tabla, data) {
+      const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}`, {
+        method: 'POST',
+        headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+        body: JSON.stringify(data)
+      });
+      return res.json();
+    }
+
+    async function update(tabla, id, data, campo = 'id') {
+      await fetch(`${supabaseUrl}/rest/v1/${tabla}?${campo}=eq.${id}`, {
+        method: 'PATCH',
+        headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    }
+
+    async function remove(tabla, id) {
+      await fetch(`${supabaseUrl}/rest/v1/${tabla}?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+      });
+    }
+
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? match[2] : null;
+    }
+
+    function getSesion() {
+      const sesion = getCookie('sesion');
+      return sesion ? JSON.parse(sesion) : null;
+    }
+
+    // Verificar sesión
+    const usuarioSession = getSesion();
+    if (!usuarioSession) {
+      window.location.href = 'login.html';
+    }
+
+    /* HEADER */
+    function Header({ user, onLogout }) {
+      return d('div', { style: { background: '#1E293B', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+        d('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
+          d('div', { style: { width: 40, height: 40, background: B, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+            d('svg', { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: '#fff', strokeWidth: 2 }, d('path', { d: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z' }))
+          ),
+          d('div', null,
+            d('div', { style: { fontWeight: 700, fontSize: 18, color: '#fff' } }, 'Conteo'),
+            d('div', { style: { fontSize: 11, color: '#64748B' } }, user.nombre)
+          )
+        ),
+        d('button', { onClick: onLogout, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'transparent', border: '1px solid #475569', borderRadius: 8, color: '#94A3B8', cursor: 'pointer', fontSize: 14 } }, h(IconLogout), 'Cerrar Sesión')
+      );
+    }
+
+    /* DASHBOARD */
+    function Dashboard({ stats }) {
+      return d('div', { style: { padding: '0 40px 40px' } },
+        d('h1', { style: { fontSize: 32, fontWeight: 700, color: '#111827', marginBottom: 8 } }, 'Dashboard'),
+        d('p', { style: { fontSize: 15, color: '#6B7280', marginBottom: 40 } }, 'Resumen de actividad'),
+        d('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24, marginBottom: 40 } },
+          ...[
+            { label: 'Inventarios Activos', value: stats.inventariosActivos, color: B, bg: BL, icon: h(IconBox) },
+            { label: 'Total Productos', value: stats.totalProductos, color: '#7C3AED', bg: '#F5F3FF', icon: h(IconPackage) },
+            { label: 'Zonas Totales', value: stats.zonasTotales, color: G, bg: GL, icon: h(IconChart) },
+            { label: 'Usuarios', value: stats.usuariosActivos, color: Y, bg: YL, icon: h(IconUsers) },
+          ].map(({ label, value, color, bg, icon }) => d('div', { key: label, style: { background: bg, borderRadius: 16, padding: 28 } },
+            d('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 } },
+              d('div', { style: { fontSize: 40, fontWeight: 700, color, fontFamily: "'DM Mono',monospace" } }, value),
+              d('div', { style: { width: 48, height: 48, background: '#fff', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color } }, icon)
+            ),
+            d('div', { style: { fontSize: 14, color: '#6B7280', fontWeight: 500 } }, label)
+          ))
+        ),
+        d('div', { style: { background: '#fff', borderRadius: 16, padding: 28, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } },
+          d('h2', { style: { fontSize: 18, fontWeight: 600, color: '#111827', marginBottom: 24 } }, 'Inventarios Recientes'),
+          stats.inventarios.length === 0
+            ? d('p', { style: { textAlign: 'center', color: '#9CA3AF', padding: 40 } }, 'No hay inventarios')
+            : d('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+                d('thead', null,
+                  d('tr', null,
+                    ...['Nombre', 'Sucursal', 'Estado'].map((h, i) =>
+                      d('th', { key: i, style: { padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '2px solid #E5E7EB' } }, h)
+                    )
+                  )
+                ),
+                d('tbody', null,
+                  stats.inventarios.map((inv, i) => d('tr', { key: inv.id, style: { borderBottom: i < stats.inventarios.length - 1 ? '1px solid #F3F4F6' : 'none' } },
+                    d('td', { style: { padding: 16, fontWeight: 600 } }, inv.nombre),
+                    d('td', { style: { padding: 16, color: '#6B7280' } }, inv.sucursal || '-'),
+                    d('td', { style: { padding: 16 } },
+                      d('span', { style: { fontSize: 11, fontWeight: 600, padding: '4px 10px', background: inv.estado === 'abierto' ? GL : '#DBEAFE', color: inv.estado === 'abierto' ? GD : '#1D4ED8', borderRadius: 20 } },
+                        inv.estado === 'abierto' ? 'Abierto' : 'Finalizado'
+                      )
+                    )
+                  ))
+            )
+          )
+        )
+      );
+    }
+
+    /* USUARIOS */
+    function Usuarios({ licenciaId, onReload }) {
+      const [usuarios, setUsuarios] = useState([]);
+      const [showModal, setShowModal] = useState(false);
+      const [editando, setEditando] = useState(null);
+      const [form, setForm] = useState({ nombre: '', email: '', password: '', rol: 'contador' });
+      const [saving, setSaving] = useState(false);
+
+      useEffect(() => { cargar(); }, []);
+
+      const cargar = async () => {
+        const data = await query('perfiles', `?licencia_id=eq.${licenciaId}&order=nombre`);
+        setUsuarios(data || []);
+      };
+
+      const handleSubmit = async () => {
+        if (!form.nombre || !form.email || (!editando && !form.password)) return;
+        setSaving(true);
+        try {
+          if (editando) {
+            const updates = { nombre: form.nombre, rol: form.rol };
+            if (form.password) updates.password = form.password;
+            await update('perfiles', editando.id, updates);
+          } else {
+            await insert('perfiles', {
+              licencia_id: licenciaId,
+              nombre: form.nombre,
+              email: form.email,
+              password: form.password,
+              rol: form.rol,
+              estado: 'ACTIVO'
+            });
+          }
+          setShowModal(false);
+          setEditando(null);
+          setForm({ nombre: '', email: '', password: '', rol: 'contador' });
+          cargar();
+        } catch (e) { alert('Error'); }
+        setSaving(false);
+      };
+
+      const handleEliminar = async (id) => {
+        if (confirm('¿Desactivar usuario?')) {
+          await update('perfiles', id, { estado: 'INACTIVO' });
+          cargar();
+        }
+      };
+
+      const abrirEditar = (u) => {
+        setEditando(u);
+        setForm({ nombre: u.nombre, email: u.email, password: '', rol: u.rol });
+        setShowModal(true);
+      };
+
+      return d('div', { style: { padding: '0 40px 40px' } },
+        d('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 } },
+          d('div', null,
+            d('h1', { style: { fontSize: 32, fontWeight: 700, color: '#111827' } }, 'Usuarios'),
+            d('p', { style: { fontSize: 15, color: '#6B7280' } }, `${usuarios.length} usuarios`)
+          ),
+          d('button', { onClick: () => { setEditando(null); setForm({ nombre: '', email: '', password: '', rol: 'contador' }); setShowModal(true); }, style: { padding: '14px 28px', background: B, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 } }, h(IconPlus), 'Nuevo Usuario')
+        ),
+        d('div', { style: { background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } },
+          d('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+            d('thead', null,
+              d('tr', { style: { background: '#F9FAFB' } },
+                ...['Usuario', 'Email', 'Rol', 'Estado', 'Acciones'].map((h, i) =>
+                  d('th', { key: i, style: { padding: '16px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '1px solid #E5E7EB' } }, h)
+                )
+              )
+            ),
+            d('tbody', null,
+              usuarios.length === 0
+                ? d('tr', null, d('td', { colSpan: 5, style: { padding: 60, textAlign: 'center', color: '#9CA3AF' } }, 'No hay usuarios'))
+                : usuarios.map((u, i) => d('tr', { key: u.id, style: { borderBottom: i < usuarios.length - 1 ? '1px solid #F3F4F6' : 'none' } },
+                    d('td', { style: { padding: 20 } },
+                      d('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
+                        d('div', { style: { width: 44, height: 44, background: u.rol === 'administrador' ? '#FEF3C7' : BL, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: u.rol === 'administrador' ? '#D97706' : B } }, u.nombre?.charAt(0) || '?'),
+                        d('span', { style: { fontWeight: 600 } }, u.nombre)
+                      )
+                    ),
+                    d('td', { style: { padding: 20, color: '#6B7280' } }, u.email),
+                    d('td', { style: { padding: 20 } },
+                      d('span', { style: { fontSize: 11, fontWeight: 600, padding: '6px 12px', background: u.rol === 'administrador' ? '#FEF3C7' : BL, color: u.rol === 'administrador' ? '#D97706' : B, borderRadius: 20, textTransform: 'uppercase' } }, u.rol)
+                    ),
+                    d('td', { style: { padding: 20 } },
+                      d('span', { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: u.estado === 'ACTIVO' ? G : R } },
+                        d('div', { style: { width: 8, height: 8, background: u.estado === 'ACTIVO' ? G : R, borderRadius: 4 } }), u.estado
+                      )
+                    ),
+                    d('td', { style: { padding: 20 } },
+                      d('div', { style: { display: 'flex', gap: 8 } },
+                        d('button', { onClick: () => abrirEditar(u), style: { padding: 8, background: '#F3F4F6', border: 'none', borderRadius: 8, cursor: 'pointer' } }, h(IconEdit)),
+                        u.estado === 'ACTIVO' && d('button', { onClick: () => handleEliminar(u.id), style: { padding: 8, background: RL, border: 'none', borderRadius: 8, cursor: 'pointer', color: R } }, h(IconTrash))
+                      )
+                    )
+                  ))
+            )
+          )
+        ),
+        showModal && d('div', { onClick: e => { if (e.target === e.currentTarget) setShowModal(false) }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+          d('div', { style: { background: '#fff', width: '100%', maxWidth: 480, borderRadius: 16 } },
+            d('div', { style: { padding: '20px 24px', borderBottom: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              d('h2', { style: { fontSize: 18, fontWeight: 600 } }, editando ? 'Editar Usuario' : 'Nuevo Usuario'),
+              d('button', { onClick: () => setShowModal(false), style: { background: 'none', border: 'none', cursor: 'pointer' } }, h(IconX))
+            ),
+            d('div', { style: { padding: 24, display: 'flex', flexDirection: 'column', gap: 20 } },
+              ...[
+                { label: 'Nombre *', field: 'nombre', type: 'text' },
+                { label: 'Email *', field: 'email', type: 'email' },
+                { label: editando ? 'Nueva contraseña' : 'Contraseña *', field: 'password', type: 'password' },
+              ].map(({ label, field, type }) => d('div', { key: field },
+                d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 6 } }, label),
+                d('input', { type, value: form[field], onChange: e => setForm(f => ({ ...f, [field]: e.target.value })), style: { width: '100%', height: 44, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 14px' } })
+              )),
+              d('div', null,
+                d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 6 } }, 'Rol'),
+                d('div', { style: { display: 'flex', gap: 12 } },
+                  ...['contador', 'administrador'].map(rol =>
+                    d('button', { key: rol, onClick: () => setForm(f => ({ ...f, rol })), style: { flex: 1, padding: '12px 16px', border: `2px solid ${form.rol === rol ? B : '#E5E7EB'}`, background: form.rol === rol ? BL : '#fff', borderRadius: 8, fontWeight: 600, color: form.rol === rol ? B : '#6B7280', cursor: 'pointer' } },
+                      rol.charAt(0).toUpperCase() + rol.slice(1)
+                    )
+                  )
+                )
+              )
+            ),
+            d('div', { style: { padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', gap: 12 } },
+              d('button', { onClick: () => setShowModal(false), style: { flex: 1, padding: 14, background: '#F3F4F6', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' } }, 'Cancelar'),
+              d('button', { onClick: handleSubmit, disabled: saving || !form.nombre || !form.email || (!editando && !form.password), style: { flex: 2, padding: 14, background: (!form.nombre || !form.email || (!editando && !form.password)) ? '#93C5FD' : B, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: (!form.nombre || !form.email || (!editando && !form.password)) ? 'not-allowed' : 'pointer' } },
+                saving ? [h(Spinner), ' Guardando...'] : editando ? 'Guardar' : 'Crear'
+              )
+            )
+          )
+        )
+      );
+    }
+
+    /* PRODUCTOS */
+    function Productos({ licenciaId, onReload }) {
+      const [productos, setProductos] = useState([]);
+      const [showModal, setShowModal] = useState(false);
+      const [editando, setEditando] = useState(null);
+      const [form, setForm] = useState({ sku: '', nombre: '' });
+      const [saving, setSaving] = useState(false);
+
+      useEffect(() => { cargar(); }, []);
+
+      const cargar = async () => {
+        const data = await query('productos', `?licencia_id=eq.${licenciaId}&order=nombre`);
+        setProductos(data || []);
+      };
+
+      const handleSubmit = async () => {
+        if (!form.nombre) return;
+        setSaving(true);
+        try {
+          if (editando) {
+            await update('productos', editando.id, { sku: form.sku || null, nombre: form.nombre });
+          } else {
+            await insert('productos', { licencia_id: licenciaId, sku: form.sku || null, nombre: form.nombre });
+          }
+          setShowModal(false);
+          setEditando(null);
+          setForm({ sku: '', nombre: '' });
+          cargar();
+        } catch (e) { alert('Error'); }
+        setSaving(false);
+      };
+
+      return d('div', { style: { padding: '0 40px 40px' } },
+        d('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 } },
+          d('div', null,
+            d('h1', { style: { fontSize: 32, fontWeight: 700, color: '#111827' } }, 'Productos'),
+            d('p', { style: { fontSize: 15, color: '#6B7280' } }, `${productos.length} productos`)
+          ),
+          d('button', { onClick: () => { setEditando(null); setForm({ sku: '', nombre: '' }); setShowModal(true); }, style: { padding: '14px 28px', background: B, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 } }, h(IconPlus), 'Nuevo Producto')
+        ),
+        d('div', { style: { background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } },
+          d('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+            d('thead', null,
+              d('tr', { style: { background: '#F9FAFB' } },
+                ...['SKU', 'Nombre', 'Acciones'].map((h, i) =>
+                  d('th', { key: i, style: { padding: '16px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '1px solid #E5E7EB' } }, h)
+                )
+              )
+            ),
+            d('tbody', null,
+              productos.length === 0
+                ? d('tr', null, d('td', { colSpan: 3, style: { padding: 60, textAlign: 'center', color: '#9CA3AF' } }, 'No hay productos'))
+                : productos.map((p, i) => d('tr', { key: p.id, style: { borderBottom: i < productos.length - 1 ? '1px solid #F3F4F6' : 'none' } },
+                    d('td', { style: { padding: 20, fontFamily: "'DM Mono',monospace", color: B } }, p.sku || '-'),
+                    d('td', { style: { padding: 20, fontWeight: 600 } }, p.nombre),
+                    d('td', { style: { padding: 20 } },
+                      d('div', { style: { display: 'flex', gap: 8 } },
+                        d('button', { onClick: () => { setEditando(p); setForm({ sku: p.sku || '', nombre: p.nombre }); setShowModal(true); }, style: { padding: 8, background: '#F3F4F6', border: 'none', borderRadius: 8, cursor: 'pointer' } }, h(IconEdit)),
+                        d('button', { onClick: async () => { if (confirm('¿Eliminar?')) { await remove('productos', p.id); cargar(); } }, style: { padding: 8, background: RL, border: 'none', borderRadius: 8, cursor: 'pointer', color: R } }, h(IconTrash))
+                      )
+                    )
+                  ))
+            )
+          )
+        ),
+        showModal && d('div', { onClick: e => { if (e.target === e.currentTarget) setShowModal(false) }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+          d('div', { style: { background: '#fff', width: '100%', maxWidth: 480, borderRadius: 16 } },
+            d('div', { style: { padding: '20px 24px', borderBottom: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              d('h2', { style: { fontSize: 18, fontWeight: 600 } }, editando ? 'Editar Producto' : 'Nuevo Producto'),
+              d('button', { onClick: () => setShowModal(false), style: { background: 'none', border: 'none', cursor: 'pointer' } }, h(IconX))
+            ),
+            d('div', { style: { padding: 24, display: 'flex', flexDirection: 'column', gap: 20 } },
+              d('div', null,
+                d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 6 } }, 'SKU (código de barras)'),
+                d('input', { type: 'text', value: form.sku, onChange: e => setForm(f => ({ ...f, sku: e.target.value })), placeholder: 'Opcional', style: { width: '100%', height: 44, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 14px', fontFamily: "'DM Mono',monospace" } })
+              ),
+              d('div', null,
+                d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 6 } }, 'Nombre *'),
+                d('input', { type: 'text', value: form.nombre, onChange: e => setForm(f => ({ ...f, nombre: e.target.value })), placeholder: 'Nombre del producto', style: { width: '100%', height: 44, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 14px' } })
+              )
+            ),
+            d('div', { style: { padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', gap: 12 } },
+              d('button', { onClick: () => setShowModal(false), style: { flex: 1, padding: 14, background: '#F3F4F6', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' } }, 'Cancelar'),
+              d('button', { onClick: handleSubmit, disabled: saving || !form.nombre, style: { flex: 2, padding: 14, background: !form.nombre ? '#93C5FD' : B, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: !form.nombre ? 'not-allowed' : 'pointer' } },
+                saving ? [h(Spinner), ' Guardando...'] : editando ? 'Guardar' : 'Crear'
+              )
+            )
+          )
+        )
+      );
+    }
+
+    /* INVENTARIOS */
+    function Inventarios({ licenciaId, onReload }) {
+      const [inventarios, setInventarios] = useState([]);
+      const [showModal, setShowModal] = useState(false);
+      const [form, setForm] = useState({ nombre: '', sucursal: '', deposito: '', fecha_inicio: '', fecha_limite: '' });
+      const [saving, setSaving] = useState(false);
+
+      useEffect(() => { cargar(); }, []);
+
+      const cargar = async () => {
+        const data = await query('inventarios', `?licencia_id=eq.${licenciaId}&order=created_at.desc`);
+        setInventarios(data || []);
+      };
+
+      const handleSubmit = async () => {
+        if (!form.nombre || !form.sucursal || !form.fecha_inicio || !form.fecha_limite) return;
+        setSaving(true);
+        try {
+          await insert('inventarios', {
+            licencia_id: licenciaId,
+            nombre: form.nombre,
+            sucursal: form.sucursal,
+            deposito: form.deposito || null,
+            fecha_inicio: form.fecha_inicio,
+            fecha_limite: form.fecha_limite,
+            estado: 'abierto',
+            total_productos: 0
+          });
+          setShowModal(false);
+          setForm({ nombre: '', sucursal: '', deposito: '', fecha_inicio: '', fecha_limite: '' });
+          cargar();
+        } catch (e) { alert('Error'); }
+        setSaving(false);
+      };
+
+      return d('div', { style: { padding: '0 40px 40px' } },
+        d('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 } },
+          d('div', null,
+            d('h1', { style: { fontSize: 32, fontWeight: 700, color: '#111827' } }, 'Inventarios'),
+            d('p', { style: { fontSize: 15, color: '#6B7280' } }, `${inventarios.length} inventarios`)
+          ),
+          d('button', { onClick: () => setShowModal(true), style: { padding: '14px 28px', background: B, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 } }, h(IconPlus), 'Nuevo Inventario')
+        ),
+        d('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 } },
+          inventarios.length === 0
+            ? d('div', { style: { gridColumn: '1/-1', background: '#fff', borderRadius: 16, padding: 60, textAlign: 'center', color: '#9CA3AF' } }, 'No hay inventarios')
+            : inventarios.map(inv => d('div', { key: inv.id, style: { background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } },
+                d('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 } },
+                  d('div', { style: { width: 48, height: 48, background: BL, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: B } }, h(IconBox)),
+                  d('span', { style: { fontSize: 11, fontWeight: 600, padding: '6px 12px', background: inv.estado === 'abierto' ? GL : '#DBEAFE', color: inv.estado === 'abierto' ? GD : '#1D4ED8', borderRadius: 20 } },
+                    inv.estado === 'abierto' ? 'Abierto' : 'Finalizado'
+                  )
+                ),
+                d('h3', { style: { fontSize: 16, fontWeight: 600, color: '#111827', marginBottom: 4 } }, inv.nombre),
+                d('p', { style: { fontSize: 13, color: '#6B7280', marginBottom: 12 } }, inv.sucursal || '-'),
+                d('p', { style: { fontSize: 12, color: '#9CA3AF' } },
+                  inv.fecha_inicio ? new Date(inv.fecha_inicio).toLocaleDateString('es-AR') : '-', ' → ',
+                  inv.fecha_limite ? new Date(inv.fecha_limite).toLocaleDateString('es-AR') : '-'
+                )
+              ))
+        ),
+        showModal && d('div', { onClick: e => { if (e.target === e.currentTarget) setShowModal(false) }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+          d('div', { style: { background: '#fff', width: '100%', maxWidth: 520, borderRadius: 16 } },
+            d('div', { style: { padding: '20px 24px', borderBottom: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              d('h2', { style: { fontSize: 18, fontWeight: 600 } }, 'Nuevo Inventario'),
+              d('button', { onClick: () => setShowModal(false), style: { background: 'none', border: 'none', cursor: 'pointer' } }, h(IconX))
+            ),
+            d('div', { style: { padding: 24, display: 'flex', flexDirection: 'column', gap: 20 } },
+              ...[
+                { label: 'Nombre *', field: 'nombre', ph: 'Ej: Inventario Enero 2026' },
+                { label: 'Sucursal *', field: 'sucursal', ph: 'Ej: Sucursal Centro' },
+                { label: 'Depósito', field: 'deposito', ph: 'Ej: Depósito Principal' },
+              ].map(({ label, field, ph }) => d('div', { key: field },
+                d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 6 } }, label),
+                d('input', { type: 'text', placeholder: ph, value: form[field], onChange: e => setForm(f => ({ ...f, [field]: e.target.value })), style: { width: '100%', height: 44, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 14px' } })
+              )),
+              d('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 } },
+                ...[
+                  { label: 'Fecha inicio *', field: 'fecha_inicio' },
+                  { label: 'Fecha límite *', field: 'fecha_limite' },
+                ].map(({ label, field }) => d('div', { key: field },
+                  d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 6 } }, label),
+                  d('input', { type: 'date', value: form[field], onChange: e => setForm(f => ({ ...f, [field]: e.target.value })), style: { width: '100%', height: 44, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 14px' } })
+                ))
+              ),
+            d('div', { style: { padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', gap: 12 } },
+              d('button', { onClick: () => setShowModal(false), style: { flex: 1, padding: 14, background: '#F3F4F6', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' } }, 'Cancelar'),
+              d('button', { onClick: handleSubmit, disabled: saving || !form.nombre || !form.sucursal || !form.fecha_inicio || !form.fecha_limite, style: { flex: 2, padding: 14, background: (!form.nombre || !form.sucursal || !form.fecha_inicio || !form.fecha_limite) ? '#93C5FD' : B, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: (!form.nombre || !form.sucursal || !form.fecha_inicio || !form.fecha_limite) ? 'not-allowed' : 'pointer' } },
+                saving ? [h(Spinner), ' Creando...'] : 'Crear Inventario'
+              ))
+            )
+          )
+        )
+      );
+    }
+
+    /* APP */
+    function App() {
+      const [tab, setTab] = useState('dashboard');
+      const [licenciaId, setLicenciaId] = useState(null);
+      const [stats, setStats] = useState({ inventariosActivos: 0, totalProductos: 0, zonasTotales: 0, usuariosActivos: 0, inventarios: [] });
+
+      useEffect(() => {
+        if (usuarioSession) {
+          setLicenciaId(usuarioSession.licencia_id);
+          cargarStats(usuarioSession.licencia_id);
+        }
+      }, []);
+
+      const cargarStats = async (licId) => {
+        const inventarios = (await query('inventarios', `?licencia_id=eq.${licId}&order=created_at.desc`)) || [];
+        const productos = (await query('productos', `?licencia_id=eq.${licId}`)) || [];
+        const usuarios = (await query('perfiles', `?licencia_id=eq.${licId}&estado=eq.ACTIVO`)) || [];
+        
+        setStats({
+          inventariosActivos: (inventarios || []).filter(i => i.estado === 'abierto').length,
+          totalProductos: (productos || []).length,
+          zonasTotales: 0,
+          usuariosActivos: (usuarios || []).length,
+          inventarios: (inventarios || []).slice(0, 5)
+        });
+      };
+
+      const handleLogout = () => {
+        document.cookie = 'sesion=;path=/;max-age=0';
+        document.cookie = 'device_id=;path=/;max-age=0';
+        window.location.href = 'login.html';
+      };
+
+      const menuItems = [
+        { id: 'dashboard', label: 'Dashboard', icon: h(IconChart) },
+        { id: 'usuarios', label: 'Usuarios', icon: h(IconUsers) },
+        { id: 'productos', label: 'Productos', icon: h(IconPackage) },
+        { id: 'inventarios', label: 'Inventarios', icon: h(IconBox) },
+      ];
+
+      return d('div', { style: { minHeight: '100vh', background: '#F8FAFC', display: 'flex' } },
+        d('div', { style: { width: 260, background: '#1E293B', color: '#fff', padding: 28, display: 'flex', flexDirection: 'column' } },
+          d('div', { style: { marginBottom: 40 } },
+            d('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
+              d('div', { style: { width: 40, height: 40, background: B, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+                d('svg', { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: '#fff', strokeWidth: 2 }, d('path', { d: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z' }))
+              ),
+              d('span', { style: { fontWeight: 700, fontSize: 18 } }, 'Conteo')
+            )
+          ),
+          d('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 } },
+            ...menuItems.map(item => d('button', { key: item.id, onClick: () => setTab(item.id), style: { display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', background: tab === item.id ? B : 'transparent', border: 'none', borderRadius: 10, color: tab === item.id ? '#fff' : '#94A3B8', cursor: 'pointer', textAlign: 'left', fontSize: 14, fontWeight: 500, width: '100%' } }, item.icon, item.label))
+          ),
+          d('div', { style: { borderTop: '1px solid #334155', paddingTop: 20 } },
+            d('button', { onClick: handleLogout, style: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'transparent', border: 'none', borderRadius: 10, color: '#94A3B8', cursor: 'pointer', textAlign: 'left', fontSize: 14, width: '100%' } }, h(IconLogout), 'Cerrar Sesión')
+          )
+        ),
+        d('div', { style: { flex: 1, padding: 40, overflow: 'auto' } },
+          d('div', { style: { maxWidth: 1400, margin: '0 auto' } },
+            tab === 'dashboard' && h(Dashboard, { stats }),
+            tab === 'usuarios' && h(Usuarios, { licenciaId, onReload: () => cargarStats(licenciaId) }),
+            tab === 'productos' && h(Productos, { licenciaId, onReload: () => cargarStats(licenciaId) }),
+            tab === 'inventarios' && h(Inventarios, { licenciaId, onReload: () => cargarStats(licenciaId) })
+          )
+        )
+      );
+    }
+
+    createRoot(document.getElementById('root')).render(h(App, null));
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+    }
+  </script>
+</body>
+</html>
