@@ -60,7 +60,7 @@
     }
 
     /* PANTALLA DE REGISTRO - Solo para la primera vez */
-    function RegistroScreen({ onRegistrado, onBack }) {
+    function RegistroScreen({ onBack }) {
       const [email, setEmail] = useState('');
       const [codigo, setCodigo] = useState('');
       const [error, setError] = useState('');
@@ -88,13 +88,13 @@
 
           const licencia = licencias[0];
 
-          const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&select=id`, {
+          const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
-          const dispositivo = await devRes.json();
+          const dispositivoExistente = await devRes.json();
 
-          if (dispositivo && dispositivo.length > 0) {
-            setError('Esta terminal ya está registrada. Usá login con tu email y contraseña.');
+          if (dispositivoExistente && dispositivoExistente.length > 0) {
+            setError('Esta terminal ya está registrada con esta licencia. Usá "Iniciar Sesión" con tu email y contraseña.');
             setLoading(false);
             return;
           }
@@ -156,8 +156,9 @@
             console.error('Error registrando dispositivo:', regDevRes.status, errText);
           }
 
-          guardarSesion(usuario);
-          onRegistrado(usuario);
+          // Redirigir a login (NO guardar sesión para forzar login manual)
+          alert('¡Terminal activada! Ahora iniciá sesión con tu email y contraseña.');
+          window.location.href = 'login.html';
 
         } catch (err) {
           console.error(err);
@@ -242,17 +243,42 @@
         setError('');
 
         try {
+          // 1. Obtener usuario por credenciales
           const res = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}&estado=eq.ACTIVO&select=id,nombre,email,rol,estado,licencia_id`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
           const data = await res.json();
 
-          if (data && data.length > 0) {
-            guardarSesion(data[0]);
-            window.location.href = 'admin.html';
-          } else {
+          if (!data || data.length === 0) {
             setError('Email o contraseña incorrectos');
+            setLoading(false);
+            return;
           }
+
+          const usuario = data[0];
+
+          // 2. Verificar que la terminal esté registrada con ESTA licencia
+          const deviceId = getDeviceId();
+          const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${usuario.licencia_id}&select=id`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          const dispositivo = await devRes.json();
+
+          if (!dispositivo || dispositivo.length === 0) {
+            setError('Esta terminal no está activada para esta cuenta. Primero activá la terminal con tu código de licencia.');
+            setLoading(false);
+            return;
+          }
+
+          guardarSesion(usuario);
+          
+          // Redirigir según rol
+          if (usuario.rol === 'contador') {
+            window.location.href = 'Contador.html';
+          } else {
+            window.location.href = 'admin.html';
+          }
+
         } catch (err) {
           setError('Error de conexión');
         }
@@ -298,12 +324,12 @@
 
       useEffect(() => {
         getDeviceId();
-        const tempPwd = getCookie('temp_password');
         const sesion = getSesion();
 
         if (sesion) {
-          if (tempPwd) {
-            setPaso('password-temporal');
+          // Ya tiene sesión activa - redirigir según rol
+          if (sesion.rol === 'contador') {
+            window.location.href = 'Contador.html';
           } else {
             window.location.href = 'admin.html';
           }
@@ -318,19 +344,8 @@
         );
       }
 
-      if (paso === 'password-temporal') {
-        return h(PasswordTemporalScreen, {
-          usuario: getSesion(),
-          onContinuar: () => {
-            document.cookie = 'temp_password=;path=/;max-age=0';
-            window.location.href = 'admin.html';
-          }
-        });
-      }
-
       if (paso === 'registro') {
         return h(RegistroScreen, {
-          onRegistrado: (usuario) => setPaso('password-temporal'),
           onBack: () => setPaso('login')
         });
       }

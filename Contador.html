@@ -39,6 +39,15 @@
       return sesion ? JSON.parse(sesion) : null;
     }
 
+    function getDeviceId() {
+      let id = getCookie('device_id');
+      if (!id) {
+        id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        setCookie('device_id', id);
+      }
+      return id;
+    }
+
     async function apiGet(tabla, params = '') {
       try {
         const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}${params}`, {
@@ -831,7 +840,24 @@
           window.location.href = 'login.html';
           return;
         }
-        cargarInventario();
+        
+        // Asegurar que existe device_id
+        const deviceId = getDeviceId();
+        
+        // Verificar que la terminal esté registrada con esta licencia
+        fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${sesion.licencia_id}&select=id`, {
+          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+        }).then(res => res.json()).then(data => {
+          if (!data || data.length === 0) {
+            document.cookie = 'sesion=;path=/;max-age=0';
+            alert('Esta terminal no está activada para esta cuenta. Primero activá la terminal desde login.');
+            window.location.href = 'login.html';
+          } else {
+            cargarInventario();
+          }
+        }).catch(() => {
+          cargarInventario();
+        });
       }, []);
 
       const goZonas = () => { setScreen('zonas'); setZonaActiva(null) };

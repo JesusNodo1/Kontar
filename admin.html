@@ -82,15 +82,42 @@
       return match ? match[2] : null;
     }
 
+    function setCookie(name, value, days = 365) {
+      document.cookie = `${name}=${value};path=/;max-age=${days * 24 * 60 * 60};SameSite=Lax`;
+    }
+
+    function getDeviceId() {
+      let id = getCookie('device_id');
+      if (!id) {
+        id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        setCookie('device_id', id);
+      }
+      return id;
+    }
+
     function getSesion() {
       const sesion = getCookie('sesion');
       return sesion ? JSON.parse(sesion) : null;
     }
 
-    // Verificar sesión
+    // Verificar sesión y terminal registrada
     const usuarioSession = getSesion();
     if (!usuarioSession) {
       window.location.href = 'login.html';
+    } else {
+      // Asegurar que existe device_id y verificar registro
+      const deviceId = getDeviceId();
+      fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${usuarioSession.licencia_id}&select=id`, {
+        headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+      }).then(res => res.json()).then(data => {
+        if (!data || data.length === 0) {
+          document.cookie = 'sesion=;path=/;max-age=0';
+          alert('Esta terminal no está activada para esta cuenta. Primero activá la terminal desde login.');
+          window.location.href = 'login.html';
+        }
+      }).catch(() => {
+        // Si hay error de conexión, permitir acceso
+      });
     }
 
     /* HEADER */
