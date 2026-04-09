@@ -21,7 +21,7 @@
 <body>
   <div id="root"></div>
   <script type="module">
-    import { createElement as h, useState, useEffect } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
+    import { createElement as h, useState, useEffect, useRef } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
     import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
 
     const B = '#3B82F6', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F4', G = '#10B981', GL = '#F0FDF4', Y = '#F59E0B', YL = '#FFFBEB';
@@ -97,7 +97,6 @@
       if (!storedHash) return false;
       const inputHash = await hashPassword(password);
       return inputHash === storedHash;
-    }
     }
 
     function getCookie(name) {
