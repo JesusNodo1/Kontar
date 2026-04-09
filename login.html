@@ -79,26 +79,6 @@
       return /^CNT-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(codigo);
     }
 
-    // ============================================
-    // HASH DE CONTRASEÑAS (SHA-256)
-    // ============================================
-
-    async function hashPassword(password) {
-      const encoder = new TextEncoder();
-      const salt = 'ConteoApp_Salt_2026';
-      const data = encoder.encode(password + salt);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    // Comparar password con hash almacenado
-    async function verifyPassword(password, storedHash) {
-      if (!storedHash) return false;
-      const inputHash = await hashPassword(password);
-      return inputHash === storedHash;
-    }
-
     function getCookie(name) {
       const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
       return match ? match[2] : null;
@@ -208,7 +188,6 @@
             usuario = userExistente[0];
           } else {
             const passwordPlano = Math.random().toString(36).substr(2, 8);
-            const passwordHash = await hashPassword(passwordPlano);
 
             const createRes = await fetch(`${supabaseUrl}/rest/v1/perfiles`, {
               method: 'POST',
@@ -216,7 +195,7 @@
               body: JSON.stringify({
                 licencia_id: licencia.id,
                 email: email,
-                password: passwordHash,
+                password: passwordPlano,
                 nombre: email.split('@')[0],
                 rol: 'administrador',
                 estado: 'ACTIVO'
@@ -406,10 +385,8 @@
 
           const usuario = data[0];
           
-          // 2. Verificar contraseña con hash
-          const passwordValida = await verifyPassword(password, usuario.password);
-          
-          if (!passwordValida) {
+          // 2. Verificar contraseña (texto plano)
+          if (usuario.password !== password) {
             recordAttempt(email, false);
             setError('Email o contraseña incorrectos');
             setLoading(false);

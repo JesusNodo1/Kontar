@@ -124,19 +124,6 @@
       return id;
     }
 
-    // ============================================
-    // HASH DE CONTRASEÑAS (SHA-256)
-    // ============================================
-
-    async function hashPassword(password) {
-      const encoder = new TextEncoder();
-      const salt = 'ConteoApp_Salt_2026';
-      const data = encoder.encode(password + salt);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
     function getSesion() {
       const sesion = getCookie('sesion');
       return sesion ? JSON.parse(sesion) : null;
@@ -247,16 +234,15 @@
           if (editando) {
             const updates = { nombre: form.nombre, rol: form.rol };
             if (form.password) {
-              updates.password = await hashPassword(form.password);
+              updates.password = form.password;
             }
             await update('perfiles', editando.id, updates);
           } else {
-            const passwordHash = await hashPassword(form.password);
             await insert('perfiles', {
               licencia_id: licenciaId,
               nombre: form.nombre,
               email: form.email,
-              password: passwordHash,
+              password: form.password,
               rol: form.rol,
               estado: 'ACTIVO'
             });
@@ -594,8 +580,7 @@
 
       const confirmResetPassword = async () => {
         if (!resetPassword) return;
-        const newPasswordHash = await hashPassword('12345');
-        await update('perfiles', resetPassword.id, { password: newPasswordHash });
+        await update('perfiles', resetPassword.id, { password: '12345' });
         setShowResetModal(false);
         setResetPassword(null);
         cargarStats(licenciaId);
