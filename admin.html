@@ -42,39 +42,67 @@
 
     async function query(tabla, filtro = '') {
       try {
-        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}${filtro}`, {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}${filtro}&limit=100`, {
           headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         return Array.isArray(data) ? data : [];
       } catch (e) {
         console.error('Query error:', e);
+        alert('Error de conexión. Verificá tu internet.');
         return [];
       }
     }
 
     async function insert(tabla, data) {
-      const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}`, {
-        method: 'POST',
-        headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-        body: JSON.stringify(data)
-      });
-      return res.json();
+      try {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}`, {
+          method: 'POST',
+          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(err);
+        }
+        return await res.json();
+      } catch (e) {
+        console.error('Insert error:', e);
+        alert('Error al guardar: ' + e.message);
+        return null;
+      }
     }
 
     async function update(tabla, id, data, campo = 'id') {
-      await fetch(`${supabaseUrl}/rest/v1/${tabla}?${campo}=eq.${id}`, {
-        method: 'PATCH',
-        headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
+      try {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}?${campo}=eq.${id}`, {
+          method: 'PATCH',
+          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return true;
+      } catch (e) {
+        console.error('Update error:', e);
+        alert('Error al actualizar');
+        return false;
+      }
     }
 
     async function remove(tabla, id) {
-      await fetch(`${supabaseUrl}/rest/v1/${tabla}?id=eq.${id}`, {
-        method: 'DELETE',
-        headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-      });
+      try {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}?id=eq.${id}`, {
+          method: 'DELETE',
+          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return true;
+      } catch (e) {
+        console.error('Remove error:', e);
+        alert('Error al eliminar');
+        return false;
+      }
     }
 
     function getCookie(name) {
@@ -83,7 +111,8 @@
     }
 
     function setCookie(name, value, days = 365) {
-      document.cookie = `${name}=${value};path=/;max-age=${days * 24 * 60 * 60};SameSite=Lax`;
+      const secure = location.protocol === 'https:' ? ';Secure' : '';
+      document.cookie = `${name}=${value};path=/;max-age=${days * 24 * 60 * 60};SameSite=Strict${secure}`;
     }
 
     function getDeviceId() {
@@ -93,6 +122,19 @@
         setCookie('device_id', id);
       }
       return id;
+    }
+
+    // ============================================
+    // HASH DE CONTRASEÑAS (SHA-256)
+    // ============================================
+
+    async function hashPassword(password) {
+      const encoder = new TextEncoder();
+      const salt = 'ConteoApp_Salt_2026';
+      const data = encoder.encode(password + salt);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     function getSesion() {
@@ -184,7 +226,7 @@
     }
 
     /* USUARIOS */
-    function Usuarios({ licenciaId, onReload }) {
+    function Usuarios({ licenciaId, onReload, onResetPassword }) {
       const [usuarios, setUsuarios] = useState([]);
       const [showModal, setShowModal] = useState(false);
       const [editando, setEditando] = useState(null);
@@ -204,14 +246,17 @@
         try {
           if (editando) {
             const updates = { nombre: form.nombre, rol: form.rol };
-            if (form.password) updates.password = form.password;
+            if (form.password) {
+              updates.password = await hashPassword(form.password);
+            }
             await update('perfiles', editando.id, updates);
           } else {
+            const passwordHash = await hashPassword(form.password);
             await insert('perfiles', {
               licencia_id: licenciaId,
               nombre: form.nombre,
               email: form.email,
-              password: form.password,
+              password: passwordHash,
               rol: form.rol,
               estado: 'ACTIVO'
             });
@@ -231,11 +276,11 @@
         }
       };
 
-      const abrirEditar = (u) => {
-        setEditando(u);
-        setForm({ nombre: u.nombre, email: u.email, password: '', rol: u.rol });
-        setShowModal(true);
+      const handleResetPassword = (u) => {
+        onResetPassword(u);
       };
+
+      const IconReset = () => d('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('path', { d: 'M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8' }), d('path', { d: 'M3 3v5h5' }));
 
       return d('div', { style: { padding: '0 40px 40px' } },
         d('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 } },
@@ -275,8 +320,8 @@
                     ),
                     d('td', { style: { padding: 20 } },
                       d('div', { style: { display: 'flex', gap: 8 } },
-                        d('button', { onClick: () => abrirEditar(u), style: { padding: 8, background: '#F3F4F6', border: 'none', borderRadius: 8, cursor: 'pointer' } }, h(IconEdit)),
-                        u.estado === 'ACTIVO' && d('button', { onClick: () => handleEliminar(u.id), style: { padding: 8, background: RL, border: 'none', borderRadius: 8, cursor: 'pointer', color: R } }, h(IconTrash))
+                        d('button', { onClick: () => handleResetPassword(u), title: 'Resetear contraseña', style: { padding: '8px 14px', background: Y, border: 'none', borderRadius: 8, cursor: 'pointer', color: '#fff', fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 } }, h(IconReset), 'Reset'),
+                        u.estado === 'ACTIVO' && d('button', { onClick: () => handleEliminar(u.id), title: 'Desactivar', style: { padding: 8, background: RL, border: 'none', borderRadius: 8, cursor: 'pointer', color: R } }, h(IconTrash))
                       )
                     )
                   ))
@@ -513,6 +558,8 @@
       const [tab, setTab] = useState('dashboard');
       const [licenciaId, setLicenciaId] = useState(null);
       const [stats, setStats] = useState({ inventariosActivos: 0, totalProductos: 0, zonasTotales: 0, usuariosActivos: 0, inventarios: [] });
+      const [resetPassword, setResetPassword] = useState(null);
+      const [showResetModal, setShowResetModal] = useState(false);
 
       useEffect(() => {
         if (usuarioSession) {
@@ -537,8 +584,21 @@
 
       const handleLogout = () => {
         document.cookie = 'sesion=;path=/;max-age=0';
-        document.cookie = 'device_id=;path=/;max-age=0';
         window.location.href = 'login.html';
+      };
+
+      const handleResetPassword = (u) => {
+        setResetPassword(u);
+        setShowResetModal(true);
+      };
+
+      const confirmResetPassword = async () => {
+        if (!resetPassword) return;
+        const newPasswordHash = await hashPassword('12345');
+        await update('perfiles', resetPassword.id, { password: newPasswordHash });
+        setShowResetModal(false);
+        setResetPassword(null);
+        cargarStats(licenciaId);
       };
 
       const menuItems = [
@@ -547,6 +607,35 @@
         { id: 'productos', label: 'Productos', icon: h(IconPackage) },
         { id: 'inventarios', label: 'Inventarios', icon: h(IconBox) },
       ];
+
+      const IconReset = () => d('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('path', { d: 'M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8' }), d('path', { d: 'M3 3v5h5' }));
+
+      const renderResetModal = () => {
+        if (!showResetModal || !resetPassword) return null;
+        return d('div', { onClick: e => { if (e.target === e.currentTarget) { setShowResetModal(false); setResetPassword(null); } }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+          d('div', { style: { background: '#fff', width: '100%', maxWidth: 400, borderRadius: 16, overflow: 'hidden' } },
+            d('div', { style: { background: Y, padding: 20, display: 'flex', alignItems: 'center', gap: 12 } },
+              h(IconReset),
+              d('h2', { style: { fontSize: 18, fontWeight: 600, color: '#fff' } }, 'Resetear Contraseña')
+            ),
+            d('div', { style: { padding: 24 } },
+              d('p', { style: { fontSize: 14, color: '#6B7280', marginBottom: 16 } }, `Vas a resetear la contraseña de:`),
+              d('div', { style: { background: '#F3F4F6', padding: 16, borderRadius: 8, marginBottom: 16 } },
+                d('div', { style: { fontWeight: 600, marginBottom: 4 } }, resetPassword.nombre),
+                d('div', { style: { fontSize: 13, color: '#6B7280' } }, resetPassword.email)
+              ),
+              d('div', { style: { background: '#FEF3C7', border: '2px solid #FCD34D', borderRadius: 12, padding: 16, textAlign: 'center' } },
+                d('div', { style: { fontSize: 11, fontWeight: 600, color: '#92400E', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'Nueva contraseña'),
+                d('div', { style: { fontSize: 28, fontWeight: 700, color: '#111827', fontFamily: "'DM Mono',monospace" } }, '12345')
+              )
+            ),
+            d('div', { style: { padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', gap: 12 } },
+              d('button', { onClick: () => { setShowResetModal(false); setResetPassword(null); }, style: { flex: 1, padding: 14, background: '#F3F4F6', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' } }, 'Cancelar'),
+              d('button', { onClick: confirmResetPassword, style: { flex: 1, padding: 14, background: Y, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' } }, 'Confirmar')
+            )
+          )
+        );
+      };
 
       return d('div', { style: { minHeight: '100vh', background: '#F8FAFC', display: 'flex' } },
         d('div', { style: { width: 260, background: '#1E293B', color: '#fff', padding: 28, display: 'flex', flexDirection: 'column' } },
@@ -568,11 +657,12 @@
         d('div', { style: { flex: 1, padding: 40, overflow: 'auto' } },
           d('div', { style: { maxWidth: 1400, margin: '0 auto' } },
             tab === 'dashboard' && h(Dashboard, { stats }),
-            tab === 'usuarios' && h(Usuarios, { licenciaId, onReload: () => cargarStats(licenciaId) }),
+            tab === 'usuarios' && h(Usuarios, { licenciaId, onReload: () => cargarStats(licenciaId), onResetPassword: handleResetPassword }),
             tab === 'productos' && h(Productos, { licenciaId, onReload: () => cargarStats(licenciaId) }),
             tab === 'inventarios' && h(Inventarios, { licenciaId, onReload: () => cargarStats(licenciaId) })
           )
-        )
+        ),
+        h(renderResetModal)
       );
     }
 

@@ -21,3 +21,7 @@ button:active{opacity:.8}
 .spin{animation:spin .7s linear infinite}
 .pulse{animation:pulse 1.2s ease infinite}
 .shake{animation:shake .35s ease}
+
+.offline-banner{position:fixed;top:0;left:0;right:0;background:#EF4444;color:#fff;padding:8px 14px;font-size:13px;font-weight:600;z-index:9999;text-align:center}
+.offline-banner.syncing{background:#F59E0B}
+.offline-banner.synced{background:#10B981}

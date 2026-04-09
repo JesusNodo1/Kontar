@@ -36,13 +36,14 @@
 
     async function apiGet(tabla, params = '') {
       try {
-        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}?select=*&order=id${params}`, {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}?select=*&order=id${params}&limit=100`, {
           headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();
       } catch (e) {
         console.error('API GET error:', e);
+        alert('Error de conexión. Verificá tu internet.');
         return [];
       }
     }
@@ -54,10 +55,14 @@
           headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
           body: JSON.stringify(data)
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(err);
+        }
         return await res.json();
       } catch (e) {
         console.error('API POST error:', e);
+        alert('Error al guardar: ' + e.message);
         return [];
       }
     }
@@ -73,6 +78,7 @@
         return await res.json();
       } catch (e) {
         console.error('API PATCH error:', e);
+        alert('Error al actualizar');
         return [];
       }
     }
@@ -205,7 +211,7 @@
           await apiPost('perfiles', {
             licencia_id: lic[0].id,
             email: form.email_cliente,
-            password,
+            password: password,
             nombre: form.nombre_empresa,
             rol: 'administrador',
             estado: 'ACTIVO'
