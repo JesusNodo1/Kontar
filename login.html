@@ -160,13 +160,19 @@
           
           const licencias = await res.json();
 
-          if (!licencias || licencias.length === 0) {
+          if (!licencias || !Array.isArray(licencias) || licencias.length === 0) {
             setError('Código de licencia inválido');
             setLoading(false);
             return;
           }
 
           const licencia = licencias[0];
+          
+          if (!licencia || !licencia.id) {
+            setError('Error al leer la licencia');
+            setLoading(false);
+            return;
+          }
           
           if (!licencia.activa) {
             setError('La licencia está inactiva');
@@ -178,7 +184,7 @@
           const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
-          const dispositivoExistente = await devRes.json();
+          const dispositivoExistente = devRes.ok ? await devRes.json() : [];
 
           if (dispositivoExistente && dispositivoExistente.length > 0) {
             setError('Esta terminal ya está registrada con esta licencia. Usá "Iniciar Sesión" con tu email y contraseña.');
@@ -189,7 +195,7 @@
           const userRes = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&licencia_id=eq.${licencia.id}&select=id,nombre,email,rol,estado,licencia_id`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
-          const userExistente = await userRes.json();
+          const userExistente = userRes.ok ? await userRes.json() : [];
 
           let usuario;
 
@@ -209,7 +215,7 @@
               headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
               body: JSON.stringify({
                 licencia_id: licencia.id,
-                email,
+                email: email,
                 password: passwordHash,
                 nombre: email.split('@')[0],
                 rol: 'administrador',
@@ -220,10 +226,23 @@
             if (!createRes.ok) {
               const errText = await createRes.text();
               console.error('Error creando usuario:', createRes.status, errText);
+              setError('Error al crear usuario: ' + errText);
+              setLoading(false);
+              return;
+            }
+            
+            if (!createRes.ok) {
+              const errText = await createRes.text();
+              console.error('Error creando usuario:', createRes.status, errText);
               throw new Error('No se pudo crear el usuario');
             }
             
             const nuevo = await createRes.json();
+            if (!nuevo || nuevo.length === 0) {
+              setError('Error al crear usuario');
+              setLoading(false);
+              return;
+            }
             usuario = nuevo[0];
             // Guardar password plana para mostrar al usuario
             setCookie('temp_password', passwordPlano, 7);
@@ -241,8 +260,7 @@
           });
           
           if (!regDevRes.ok) {
-            const errText = await regDevRes.text();
-            console.error('Error registrando dispositivo:', regDevRes.status, errText);
+            console.error('Error registrando dispositivo');
           }
 
           // Redirigir a login (NO guardar sesión para forzar login manual)
@@ -250,7 +268,7 @@
           window.location.href = 'login.html';
 
         } catch (err) {
-          console.error(err);
+          console.error('Error:', err);
           setError('Error de conexión: ' + (err.message || 'Verificá que la tabla dispositivos exista'));
         }
         setLoading(false);
