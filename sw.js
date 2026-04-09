@@ -57,58 +57,79 @@ function openDB() {
 }
 
 async function dbGet(storeName, key) {
-  const database = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = database.transaction(storeName, 'readonly');
-    const store = tx.objectStore(storeName);
-    const request = store.get(key);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+  try {
+    const database = await openDB();
+    if (!database.objectStoreNames.contains(storeName)) {
+      return null;
+    }
+    return new Promise((resolve) => {
+      const tx = database.transaction(storeName, 'readonly');
+      const store = tx.objectStore(storeName);
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    });
+  } catch (e) {
+    return null;
+  }
 }
 
 async function dbGetAll(storeName) {
-  const database = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = database.transaction(storeName, 'readonly');
-    const store = tx.objectStore(storeName);
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+  try {
+    const database = await openDB();
+    if (!database.objectStoreNames.contains(storeName)) {
+      return [];
+    }
+    return new Promise((resolve, reject) => {
+      const tx = database.transaction(storeName, 'readonly');
+      const store = tx.objectStore(storeName);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve([]);
+    });
+  } catch (e) {
+    return [];
+  }
 }
 
 async function dbPut(storeName, data) {
-  const database = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = database.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const request = store.put(data);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+  try {
+    const database = await openDB();
+    if (!database.objectStoreNames.contains(storeName)) {
+      return null;
+    }
+    return new Promise((resolve) => {
+      const tx = database.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const request = store.put(data);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    });
+  } catch (e) {
+    return null;
+  }
 }
 
 async function dbDelete(storeName, key) {
-  const database = await openDB();
-  return new Promise((resolve, reject) => {
+  try {
+    const database = await openDB();
+    if (!database.objectStoreNames.contains(storeName)) {
+      return;
+    }
     const tx = database.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const request = store.delete(key);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
+    tx.objectStore(storeName).delete(key);
+  } catch (e) {}
 }
 
 async function dbClear(storeName) {
-  const database = await openDB();
-  return new Promise((resolve, reject) => {
+  try {
+    const database = await openDB();
+    if (!database.objectStoreNames.contains(storeName)) {
+      return;
+    }
     const tx = database.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const request = store.clear();
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
+    tx.objectStore(storeName).clear();
+  } catch (e) {}
 }
 
 async function addToQueue(operation) {

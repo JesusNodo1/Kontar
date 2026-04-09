@@ -4,8 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <meta name="theme-color" content="#3B82F6"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <link rel="manifest" href="manifest.json"/>
   <title>Conteo - Login</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -149,19 +149,32 @@
         try {
           const deviceId = getDeviceId();
 
-          const res = await fetch(`${supabaseUrl}/rest/v1/licencias?codigo=eq.${encodeURIComponent(codigo)}&activa=eq.true&select=*`, {
+          // Verificar licencia
+          const res = await fetch(`${supabaseUrl}/rest/v1/licencias?codigo=eq.${encodeURIComponent(codigo)}&select=*`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
+          
+          if (!res.ok) {
+            throw new Error('Error al verificar licencia');
+          }
+          
           const licencias = await res.json();
 
           if (!licencias || licencias.length === 0) {
-            setError('Código de licencia inválido o inactivo');
+            setError('Código de licencia inválido');
             setLoading(false);
             return;
           }
 
           const licencia = licencias[0];
+          
+          if (!licencia.activa) {
+            setError('La licencia está inactiva');
+            setLoading(false);
+            return;
+          }
 
+          // Verificar dispositivo existente
           const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
