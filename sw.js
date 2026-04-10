@@ -1,17 +1,16 @@
-const CACHE_NAME = 'conteo-v4';
+const CACHE_NAME = 'conteo-static';
 const DATA_CACHE = 'conteo-data-v2';
 const API_QUEUE = 'conteo-queue-v2';
-const VERSION = 'v=4';
 
+// Solo assets locales para soporte offline.
+// Los CDN (React, fuentes) los maneja el caché del navegador — no el SW.
 const STATIC_ASSETS = [
   '/Contador.html',
   '/login.html',
   '/admin.html',
   '/styles.css',
   '/manifest.json',
-  'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm',
-  'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm',
-  'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap'
+  '/api.js'
 ];
 
 const DB_NAME = 'ConteoOfflineDB';
@@ -224,7 +223,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Don't intercept cross-origin requests (Supabase, CDN, Google Fonts)
+  // No interceptar requests cross-origin (Supabase, CDN, Google Fonts)
   if (url.origin !== location.origin) {
     return;
   }
@@ -234,14 +233,19 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for local static assets
-  if (url.origin === location.origin) {
-    event.respondWith(
-      caches.match(event.request)
-        .then(response => response || fetch(event.request))
-    );
-    return;
-  }
+  // Network-first para assets locales:
+  // - Online: siempre trae la versión más reciente y actualiza el caché
+  // - Offline: cae al caché automáticamente
+  // → Nunca hace falta cambiar CACHE_NAME al deployar
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
+  );
 });
 
 async function handleApiRequest(request) {
