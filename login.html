@@ -27,6 +27,7 @@
     // FIX: Added useRef to imports (was missing, broke rate limiting)
     import { createElement as h, useState, useEffect, useRef } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
     import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
+    import { Api } from './api.js';
 
     const B = '#3B82F6', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F4', G = '#10B981', GL = '#F0FDF4', Y = '#F59E0B', YL = '#FFFBEB';
 
@@ -279,19 +280,22 @@
         setError('');
 
         try {
-          const res = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&estado=eq.ACTIVO&select=id,nombre,email,rol,estado,licencia_id,password`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-          });
-          const data = await res.json();
+          const perfilRes = await Api.get('perfiles', `?email=eq.${encodeURIComponent(email)}&estado=eq.ACTIVO&select=id,nombre,email,rol,estado,licencia_id,password`);
 
-          if (!data || data.length === 0) {
+          if (!perfilRes.success) {
+            setError('Error de conexión. Intentá de nuevo.');
+            setLoading(false);
+            return;
+          }
+
+          if (perfilRes.data.length === 0) {
             recordAttempt(email, false);
             setError('Email o contraseña incorrectos');
             setLoading(false);
             return;
           }
 
-          const usuario = data[0];
+          const usuario = perfilRes.data[0];
 
           if (usuario.password !== password) {
             recordAttempt(email, false);
@@ -303,12 +307,9 @@
           recordAttempt(email, true);
 
           const deviceId = getDeviceId();
-          const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${usuario.licencia_id}&select=id`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-          });
-          const dispositivo = await devRes.json();
+          const dispositivoRes = await Api.get('dispositivos', `?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${usuario.licencia_id}&select=id`);
 
-          if (!dispositivo || dispositivo.length === 0) {
+          if (!dispositivoRes.success || dispositivoRes.data.length === 0) {
             setError('Esta terminal no está activada para esta cuenta. Primero activá la terminal con tu código de licencia.');
             setLoading(false);
             return;

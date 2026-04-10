@@ -14,7 +14,7 @@ const STATIC_ASSETS = [
 ];
 
 const DB_NAME = 'ConteoOfflineDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let db = null;
 
