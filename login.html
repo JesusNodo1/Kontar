@@ -79,31 +79,6 @@
 
     /* PANTALLA DE REGISTRO - Solo para la primera vez */
 
-
-    function setCookie(name, value, days = 365) {
-      const secure = location.protocol === 'https:' ? ';Secure' : '';
-      document.cookie = `${name}=${value};path=/;max-age=${days * 24 * 60 * 60};SameSite=Strict${secure}`;
-    }
-
-    function getDeviceId() {
-      let id = getCookie('device_id');
-      if (!id) {
-        id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        setCookie('device_id', id);
-      }
-      return id;
-    }
-
-    function getSesion() {
-      const sesion = getCookie('sesion');
-      return sesion ? JSON.parse(sesion) : null;
-    }
-
-    function guardarSesion(usuario) {
-      setCookie('sesion', JSON.stringify(usuario), 30);
-    }
-
-    /* PANTALLA DE REGISTRO - Solo para la primera vez */
     function RegistroScreen({ onBack }) {
       const [email, setEmail] = useState('');
       const [codigo, setCodigo] = useState('');
