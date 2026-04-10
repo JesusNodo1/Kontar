@@ -24,7 +24,8 @@
 <body>
   <div id="root"></div>
   <script type="module">
-    import { createElement as h, useState, useEffect } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
+    // FIX: Added useRef to imports (was missing, broke rate limiting)
+    import { createElement as h, useState, useEffect, useRef } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
     import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
 
     const B = '#3B82F6', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F4', G = '#10B981', GL = '#F0FDF4', Y = '#F59E0B', YL = '#FFFBEB';
@@ -35,13 +36,10 @@
     const supabaseUrl = 'https://jeupnfxzawgrtddnhvij.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpldXBuZnh6YXdncnRkZG5odmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODY5NTgsImV4cCI6MjA5MTA2Mjk1OH0.qmABLeL-3iJ3f6l7GdDnEshweuUtSM5YRSTSzby9N0g';
 
+    // FIX: Single definition of each helper function (were duplicated 2-3 times)
     function getCookie(name) {
       const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
       return match ? match[2] : null;
-    }
-
-    function setCookie(name, value, days = 365) {
-      document.cookie = `${name}=${value};path=/;max-age=${days * 24 * 60 * 60};SameSite=Lax`;
     }
 
     function setCookie(name, value, days = 365) {
@@ -74,31 +72,6 @@
       return /^CNT-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(codigo);
     }
 
-    function getDeviceId() {
-      let id = getCookie('device_id');
-      if (!id) {
-        id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        setCookie('device_id', id);
-      }
-      return id;
-    }
-      let id = getCookie('device_id');
-      if (!id) {
-        id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        setCookie('device_id', id);
-      }
-      return id;
-    }
-
-    function getSesion() {
-      const sesion = getCookie('sesion');
-      return sesion ? JSON.parse(sesion) : null;
-    }
-
-    function guardarSesion(usuario) {
-      setCookie('sesion', JSON.stringify(usuario), 30);
-    }
-
     /* PANTALLA DE REGISTRO - Solo para la primera vez */
     function RegistroScreen({ onBack }) {
       const [email, setEmail] = useState('');
@@ -108,13 +81,12 @@
 
       const handleRegistro = async (e) => {
         e?.preventDefault();
-        
-        // Validaciones
+
         if (!email.trim()) { setError('Ingresá tu email'); return; }
         if (!validarEmail(email)) { setError('Email inválido'); return; }
         if (!codigo.trim()) { setError('Ingresá el código de licencia'); return; }
         if (!validarCodigo(codigo)) { setError('El código debe tener formato CNT-XXXX-XXXX'); return; }
-        
+
         setLoading(true);
         setError('');
 
@@ -133,7 +105,7 @@
           }
 
           const licencia = licencias[0];
-          
+
           if (!licencia.activa) {
             setError('La licencia está inactiva');
             setLoading(false);
@@ -166,7 +138,7 @@
             }
             usuario = userExistente[0];
           } else {
-            const password = Math.random().toString(36).substr(2, 8);
+            const passwordPlano = Math.random().toString(36).substr(2, 8);
 
             const createRes = await fetch(`${supabaseUrl}/rest/v1/perfiles`, {
               method: 'POST',
@@ -174,21 +146,25 @@
               body: JSON.stringify({
                 licencia_id: licencia.id,
                 email,
-                password,
+                password: passwordPlano,
                 nombre: email.split('@')[0],
                 rol: 'administrador',
                 estado: 'ACTIVO'
               })
             });
-            
+
             if (!createRes.ok) {
-              const errText = await createRes.text();
               throw new Error('No se pudo crear el usuario');
             }
-            
+
             const nuevo = await createRes.json();
+            if (!nuevo || nuevo.length === 0) {
+              setError('Error al crear usuario');
+              setLoading(false);
+              return;
+            }
             usuario = nuevo[0];
-            setCookie('temp_password', password, 7);
+            setCookie('temp_password', passwordPlano, 7);
           }
 
           const regDevRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos`, {
@@ -200,7 +176,7 @@
               nombre_dispositivo: navigator.userAgent.substring(0, 100)
             })
           });
-          
+
           if (!regDevRes.ok) {
             console.error('Error registrando dispositivo');
           }
@@ -210,79 +186,10 @@
 
         } catch (err) {
           console.error(err);
-          setError('Error de conexión: ' + (err.message || 'Verificá que la tabla dispositivos exista'));
+          setError('Error de conexión: ' + (err.message || 'Verificá tu internet'));
         }
         setLoading(false);
       };
-
-          if (userExistente && userExistente.length > 0) {
-            if (userExistente[0].estado === 'INACTIVO') {
-              setError('Este usuario está desactivado. Contactá al administrador.');
-              setLoading(false);
-              return;
-            }
-            usuario = userExistente[0];
-          } else {
-            const passwordPlano = Math.random().toString(36).substr(2, 8);
-
-            const createRes = await Api.post('perfiles', {
-              licencia_id: licencia.id,
-              email: email,
-              password: passwordPlano,
-              nombre: email.split('@')[0],
-              rol: 'administrador',
-              estado: 'ACTIVO'
-            });
-            
-            if (!createRes.success) {
-              setError('Error al crear usuario: ' + (createRes.error || 'Error desconocido'));
-              setLoading(false);
-              return;
-            }
-            
-            const nuevo = createRes.data[0];
-            usuario = nuevo;
-            setCookie('temp_password', passwordPlano, 7);
-          }
-            
-            if (!createRes.ok) {
-              const errText = await createRes.text();
-              console.error('Error creando usuario:', createRes.status, errText);
-              throw new Error('No se pudo crear el usuario');
-            }
-            
-            const nuevo = await createRes.json();
-            if (!nuevo || nuevo.length === 0) {
-              setError('Error al crear usuario');
-              setLoading(false);
-              return;
-            }
-            usuario = nuevo[0];
-            // Guardar password plana para mostrar al usuario
-            setCookie('temp_password', passwordPlano, 7);
-          }
-
-            // Registrar dispositivo
-            const regDevRes = await Api.post('dispositivos', {
-              licencia_id: licencia.id,
-              dispositivo_id: deviceId,
-              nombre_dispositivo: navigator.userAgent.substring(0, 100)
-            });
-            
-            if (!regDevRes.success) {
-              console.error('Error registrando dispositivo:', regDevRes.error);
-            }
-
-            // Redirigir a login (NO guardar sesión para forzar login manual)
-            alert('¡Terminal activada! Ahora iniciá sesión con tu email y contraseña.');
-            window.location.href = 'login.html';
-
-          } catch (err) {
-            console.error('Error:', err);
-            setError('Error de conexión: ' + (err.message || 'Verificá que la tabla dispositivos exista'));
-          }
-          setLoading(false);
-        };
 
       return d('div', { style: { minHeight: '100vh', background: '#F3F4F6', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 } },
         d('div', { style: { width: '100%', maxWidth: 400 } },
@@ -290,7 +197,8 @@
             d('div', { style: { width: 72, height: 72, background: B, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 32px rgba(59,130,246,0.3)' } },
               d('svg', { width: 36, height: 36, viewBox: '0 0 24 24', fill: 'none', stroke: '#fff', strokeWidth: 2, strokeLinecap: 'square' },
                 d('path', { d: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z' }),
-                d('polyline', { points: '3.27 6.96 12 12.01 20.73 6.96' }), d('line', { x1: 12, y1: '22.08', x2: 12, y2: 12 })
+                d('polyline', { points: '3.27 6.96 12 12.01 20.73 6.96' }),
+                d('line', { x1: 12, y1: '22.08', x2: 12, y2: 12 })
               )
             ),
             d('h1', { style: { fontSize: 26, fontWeight: 700, color: '#111827', marginBottom: 8 } }, 'Registro de Dispositivo'),
@@ -300,48 +208,19 @@
           d('form', { onSubmit: handleRegistro, style: { background: '#fff', borderRadius: 16, padding: 28, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' } },
             d('div', { style: { marginBottom: 20 } },
               d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 } }, 'Email'),
-              d('input', { type: 'email', placeholder: 'admin@empresa.com', value: email, onChange: e => setEmail(e.target.value), autoComplete: 'username', style: { width: '100%', height: 52, border: `2px solid ${email ? B : '#E5E7EB'}`, borderRadius: 10, padding: '0 16px', fontSize: 16, color: '#111827', background: '#F9FAFB', outline: 'none', transition: 'border-color 0.2s' } })
+              d('input', { type: 'email', placeholder: 'admin@empresa.com', value: email, onChange: e => setEmail(e.target.value), autoComplete: 'username', style: { width: '100%', height: 52, border: `2px solid ${email ? B : '#E5E7EB'}`, borderRadius: 10, padding: '0 16px', fontSize: 16, color: '#111827', background: '#F9FAFB', outline: 'none' } })
             ),
             d('div', { style: { marginBottom: 24 } },
               d('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 } }, 'Código de Licencia'),
-              d('input', { type: 'text', placeholder: 'CNT-XXXX-XXXX', value: codigo, onChange: e => setCodigo(e.target.value.toUpperCase()), autoComplete: 'off', style: { width: '100%', height: 52, border: `2px solid ${codigo ? B : '#E5E7EB'}`, borderRadius: 10, padding: '0 16px', fontSize: 16, color: '#111827', background: '#F9FAFB', outline: 'none', fontFamily: "'DM Mono',monospace", letterSpacing: '0.15em', transition: 'border-color 0.2s' } })
+              d('input', { type: 'text', placeholder: 'CNT-XXXX-XXXX', value: codigo, onChange: e => setCodigo(e.target.value.toUpperCase()), autoComplete: 'off', style: { width: '100%', height: 52, border: `2px solid ${codigo ? B : '#E5E7EB'}`, borderRadius: 10, padding: '0 16px', fontSize: 16, color: '#111827', background: '#F9FAFB', outline: 'none', fontFamily: "'DM Mono',monospace", letterSpacing: '0.15em' } })
             ),
-            d('button', { type: 'submit', disabled: loading, style: { width: '100%', height: 52, background: loading ? '#93C5FD' : B, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 16, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'background 0.2s' } },
+            d('button', { type: 'submit', disabled: loading, style: { width: '100%', height: 52, background: loading ? '#93C5FD' : B, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 16, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 } },
               loading ? [h(Spinner), ' Verificando...'] : 'Activar Terminal'
             )
           ),
           d('div', { style: { textAlign: 'center', marginTop: 20 } },
             d('button', { type: 'button', onClick: onBack, style: { background: 'none', border: 'none', color: '#6B7280', fontSize: 13, cursor: 'pointer', fontWeight: 500 } }, '¿Ya tenés cuenta? Iniciar sesión')
           )
-        )
-      );
-    }
-
-    /* PANTALLA DE CONTRASEÑA */
-    function PasswordTemporalScreen({ usuario, onContinuar }) {
-      const tempPwd = getCookie('temp_password');
-
-      return d('div', { style: { minHeight: '100vh', background: '#F3F4F6', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 } },
-        d('div', { style: { width: '100%', maxWidth: 400 } },
-          d('div', { style: { textAlign: 'center', marginBottom: 32 } },
-            d('div', { style: { width: 72, height: 72, background: G, borderRadius: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 32px rgba(16,185,129,0.3)' } },
-              d('svg', { width: 36, height: 36, viewBox: '0 0 24 24', fill: 'none', stroke: '#fff', strokeWidth: 2, strokeLinecap: 'square' },
-                d('polyline', { points: '20 6 9 17 4 12' })
-              )
-            ),
-            d('h1', { style: { fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 8 } }, '¡Terminal Activada!'),
-            d('p', { style: { fontSize: 14, color: '#6B7280' } }, 'Guardá tu contraseña para futuros ingresos')
-          ),
-          tempPwd && d('div', { style: { background: YL, border: '2px solid #FCD34D', borderRadius: 12, padding: 24, marginBottom: 24 } },
-            d('p', { style: { fontSize: 11, fontWeight: 700, color: '#92400E', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'Tu contraseña (guardala)'),
-            d('p', { style: { fontSize: 32, fontWeight: 700, color: '#111827', fontFamily: "'DM Mono',monospace", letterSpacing: '0.15em', wordBreak: 'break-all' } }, tempPwd)
-          ),
-          d('div', { style: { background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: 24 } },
-            d('p', { style: { fontSize: 14, color: '#6B7280', lineHeight: 1.6 } },
-              'Usá esta contraseña para iniciar sesión. Si necesitás crear más usuarios, hacelo desde el panel de administración.'
-            )
-          ),
-          d('button', { onClick: onContinuar, style: { width: '100%', height: 52, background: G, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' } }, 'Ir al Panel')
         )
       );
     }
@@ -353,31 +232,31 @@
       const [error, setError] = useState('');
       const [loading, setLoading] = useState(false);
 
-      // Rate limiting
+      // FIX: useRef now properly imported, rate limiting works
       const loginAttempts = useRef({});
       const MAX_ATTEMPTS = 5;
-      const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutos
+      const LOCKOUT_MS = 15 * 60 * 1000;
 
       const checkRateLimit = (email) => {
         const now = Date.now();
         const attempts = loginAttempts.current[email] || { count: 0, firstAttempt: now };
-        
+
         if (attempts.lockedUntil && now < attempts.lockedUntil) {
           const remaining = Math.ceil((attempts.lockedUntil - now) / 60000);
           return `Demasiados intentos. Intentá en ${remaining} minuto${remaining > 1 ? 's' : ''}.`;
         }
-        
+
         if (now - attempts.firstAttempt > LOCKOUT_MS) {
           loginAttempts.current[email] = { count: 0, firstAttempt: now };
         }
-        
+
         return null;
       };
 
       const recordAttempt = (email, success) => {
         const now = Date.now();
         const attempts = loginAttempts.current[email] || { count: 0, firstAttempt: now };
-        
+
         if (success) {
           delete loginAttempts.current[email];
         } else {
@@ -392,16 +271,14 @@
       const handleLogin = async (e) => {
         e?.preventDefault();
         if (!email || !password) { setError('Completá todos los campos'); return; }
-        
-        // Verificar rate limit
+
         const rateError = checkRateLimit(email);
         if (rateError) { setError(rateError); return; }
-        
+
         setLoading(true);
         setError('');
 
         try {
-          // 1. Obtener usuario por email (texto plano)
           const res = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&estado=eq.ACTIVO&select=id,nombre,email,rol,estado,licencia_id,password`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
@@ -415,8 +292,7 @@
           }
 
           const usuario = data[0];
-          
-          // 2. Verificar contraseña (texto plano)
+
           if (usuario.password !== password) {
             recordAttempt(email, false);
             setError('Email o contraseña incorrectos');
@@ -426,7 +302,6 @@
 
           recordAttempt(email, true);
 
-          // 2. Verificar que la terminal esté registrada con ESTA licencia
           const deviceId = getDeviceId();
           const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${usuario.licencia_id}&select=id`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
@@ -440,8 +315,7 @@
           }
 
           guardarSesion(usuario);
-          
-          // Redirigir según rol
+
           if (usuario.rol === 'contador') {
             window.location.href = 'Contador.html';
           } else {
@@ -460,7 +334,8 @@
             d('div', { style: { width: 64, height: 64, background: B, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 8px 32px rgba(59,130,246,0.3)' } },
               d('svg', { width: 32, height: 32, viewBox: '0 0 24 24', fill: 'none', stroke: '#fff', strokeWidth: 2, strokeLinecap: 'square' },
                 d('path', { d: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z' }),
-                d('polyline', { points: '3.27 6.96 12 12.01 20.73 6.96' }), d('line', { x1: 12, y1: '22.08', x2: 12, y2: 12 })
+                d('polyline', { points: '3.27 6.96 12 12.01 20.73 6.96' }),
+                d('line', { x1: 12, y1: '22.08', x2: 12, y2: 12 })
               )
             ),
             d('h1', { style: { fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 8 } }, 'Conteo de Inventario'),
@@ -494,9 +369,7 @@
       useEffect(() => {
         getDeviceId();
         const sesion = getSesion();
-
         if (sesion) {
-          // Ya tiene sesión activa - redirigir según rol
           if (sesion.rol === 'contador') {
             window.location.href = 'Contador.html';
           } else {
@@ -514,9 +387,7 @@
       }
 
       if (paso === 'registro') {
-        return h(RegistroScreen, {
-          onBack: () => setPaso('login')
-        });
+        return h(RegistroScreen, { onBack: () => setPaso('login') });
       }
 
       return d('div', null,

@@ -173,15 +173,15 @@
         if (cached && cached.length > 0) {
           if (params.includes('zona_id=')) {
             const zonaId = params.match(/zona_id=eq\.(\d+)/)?.[1];
-            return cached.filter(c => c.zona_id == zonaId);
+            return cached.filter(c => String(c.zona_id) === zonaId);
           }
           if (params.includes('inventario_id=')) {
             const invId = params.match(/inventario_id=eq\.(\d+)/)?.[1];
-            return cached.filter(c => c.inventario_id == invId);
+            return cached.filter(c => String(c.inventario_id) === invId);
           }
           if (params.includes('licencia_id=')) {
             const licId = params.match(/licencia_id=eq\.([^&]+)/)?.[1];
-            return cached.filter(c => c.licencia_id === licId);
+            return cached.filter(c => String(c.licencia_id) === licId);
           }
           return cached;
         }
@@ -212,6 +212,8 @@
       }
     }
 
+    // FIX: Correct signature — apiPatch(tabla, params, data)
+    // Previously called as apiPatch('tabla?params', '', data) which sent data to wrong URL
     async function apiPatch(tabla, params, data) {
       try {
         const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}${params}`, {
@@ -307,7 +309,6 @@
           new Date(c.ts).toLocaleString('es-AR')
         ]);
       });
-      
       const csv = filas.map(f => f.map(c => `"${c}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -345,9 +346,6 @@
       );
     };
 
-    /* ════════════════════════════════════════════
-       OFFLINE INDICATOR
-    ════════════════════════════════════════════ */
     const OfflineIndicator = () => {
       const [pending, setPending] = useState(0);
       const [visible, setVisible] = useState(!isOnline);
@@ -369,21 +367,12 @@
       return d('div', {
         id: 'offline-indicator',
         style: {
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
+          position: 'fixed', top: 0, left: 0, right: 0,
           background: !isOnline ? '#EF4444' : pending > 0 ? '#F59E0B' : '#10B981',
-          color: '#fff',
-          padding: '8px 14px',
+          color: '#fff', padding: '8px 14px',
           paddingTop: 'max(env(safe-area-inset-top),8px)',
-          fontSize: 12,
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          zIndex: 9999
+          fontSize: 12, fontWeight: 600,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, zIndex: 9999
         }
       }, !isOnline ? '⚠ Sin conexión' : pending > 0 ? `↻ ${pending} pendiente${pending > 1 ? 's' : ''} de sincronizar` : '✓ Sincronizado');
     };
@@ -392,11 +381,10 @@
        INVENTARIO SCREEN
     ════════════════════════════════════════════ */
     function InventarioScreen({ inv, zonas, loading, onEntrar, onLogout, inventarios, onCambiarInv, onFinalizarInv, syncing }) {
-      const hasPending = pendingSyncCount > 0 || !isOnline;
       const contados = zonas.reduce((s, z) => s + z.productos_contados, 0);
       const finalizadas = zonas.filter(z => z.finalizada).length;
       const totalProductos = zonas.reduce((s, z) => s + (z.total_productos || 0), 0);
-      
+
       if (loading) {
         return d('div', { style: { background: '#F3F4F6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
           d('div', { style: { textAlign: 'center' } },
@@ -443,7 +431,7 @@
               'Salir'
             )
           ),
-          inventarios.length > 1 && d('select', { 
+          inventarios.length > 1 && d('select', {
             onChange: e => onCambiarInv && onCambiarInv(e.target.value),
             style: { width: '100%', height: 40, marginBottom: 12, padding: '0 12px', borderRadius: 8, border: 'none', fontSize: 14, fontWeight: 600, background: 'rgba(255,255,255,.2)', color: '#fff' }
           },
@@ -486,11 +474,11 @@
         ),
         d('div', { flex: 1 }),
         d('div', { style: { padding: '14px 14px', paddingBottom: 'max(env(safe-area-inset-bottom),14px)', borderTop: '1px solid #E5E7EB', background: '#fff', display: 'flex', gap: 10 } },
-          inv.estado === 'abierto' && d('button', { 
+          inv.estado === 'abierto' && d('button', {
             onClick: () => { if (confirm('¿Finalizar este inventario? Ya no se podrá modificar.')) { onFinalizarInv && onFinalizarInv(); } },
-            style: { flex: 1, padding: '14px 0', background: '#F3F4F6', color: '#374151', border: 'none', fontWeight: 700, fontSize: 13, letterSpacing: '0.04em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 } 
+            style: { flex: 1, padding: '14px 0', background: '#F3F4F6', color: '#374151', border: 'none', fontWeight: 700, fontSize: 13, letterSpacing: '0.04em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }
           },
-            d('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('path', { d: 'M22 11.08V12a10 10 0 11-5.93-9.14' }), d('polyline', { points: '22 4 12 14.01 22 4' }), d('line', { x1: 12, y1: 9, x2: 12, y2: 15 }), d('line', { x1: 12, y1: 19, x2: 12, y2: 21 })),
+            d('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 }, d('path', { d: 'M22 11.08V12a10 10 0 11-5.93-9.14' }), d('polyline', { points: '22 4 12 14.01 9 11' })),
             'Finalizar'
           ),
           d('button', { onClick: onEntrar, style: { flex: 2, padding: '17px 0', background: B, color: '#fff', border: 'none', fontWeight: 700, fontSize: 16, letterSpacing: '0.04em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 } },
@@ -512,17 +500,16 @@
       const [ordenarPor, setOrdenarPor] = useState('nombre');
       const contados = zonas.reduce((s, z) => s + (z.productos_contados || 0), 0);
       const finalizadas = zonas.filter(z => z.finalizada).length;
-      
+
       const zonasOrdenadas = [...zonas].sort((a, b) => {
-        if (ordenarPor === 'nombre') {
-          return (a.nombre || '').localeCompare(b.nombre || '');
-        } else if (ordenarPor === 'progreso') {
+        if (ordenarPor === 'nombre') return (a.nombre || '').localeCompare(b.nombre || '');
+        if (ordenarPor === 'progreso') {
           const pctA = a.total_productos ? a.productos_contados / a.total_productos : 0;
           const pctB = b.total_productos ? b.productos_contados / b.total_productos : 0;
           return pctB - pctA;
-        } else if (ordenarPor === 'estado') {
+        }
+        if (ordenarPor === 'estado') {
           if (a.finalizada !== b.finalizada) return a.finalizada ? 1 : -1;
-          return 0;
         }
         return 0;
       });
@@ -531,10 +518,7 @@
         if (!nom.trim()) return;
         setSaving(true);
         await onCrearZona({ nombre: nom.trim(), descripcion: desc.trim() });
-        setNom('');
-        setDesc('');
-        setSaving(false);
-        setShowM(false);
+        setNom(''); setDesc(''); setSaving(false); setShowM(false);
       };
 
       const CheckIcon = () => d('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: G, strokeWidth: '2.5', strokeLinecap: 'square' }, d('path', { d: 'M20 6L9 17l-5-5' }));
@@ -565,19 +549,9 @@
         ),
         d('div', { style: { padding: '8px 14px', background: '#fff', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
           d('span', { style: { fontSize: 11, fontWeight: 600, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginRight: 4 } }, 'Ordenar:'),
-          ...['nombre', 'progreso', 'estado'].map(ord => d('button', { 
-            key: ord, 
-            onClick: () => setOrdenarPor(ord),
-            style: { 
-              padding: '4px 10px', 
-              fontSize: 11, 
-              fontWeight: 600, 
-              border: 'none', 
-              borderRadius: 12, 
-              cursor: 'pointer',
-              background: ordenarPor === ord ? B : '#F3F4F6',
-              color: ordenarPor === ord ? '#fff' : '#6B7280'
-            } 
+          ...['nombre', 'progreso', 'estado'].map(ord => d('button', {
+            key: ord, onClick: () => setOrdenarPor(ord),
+            style: { padding: '4px 10px', fontSize: 11, fontWeight: 600, border: 'none', borderRadius: 12, cursor: 'pointer', background: ordenarPor === ord ? B : '#F3F4F6', color: ordenarPor === ord ? '#fff' : '#6B7280' }
           }, ord === 'nombre' ? 'Nombre' : ord === 'progreso' ? 'Progreso' : 'Estado'))
         ),
         d('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 } },
@@ -682,14 +656,12 @@
       const [camO, setCamO] = useState(false); const [camE, setCamE] = useState(''); const [camR, setCamR] = useState(false);
       const vidRef = useRef(null); const rdrRef = useRef(null); const inpRef = useRef(null); const mInpRef = useRef(null); const debRef = useRef(null);
 
-      // Cargar conteos de la zona
       useEffect(() => {
         const cargarConteos = async () => {
           if (!zona?.id) return;
           setLoadingConteos(true);
           try {
             const conteosRaw = await apiGet(`conteo_producto?zona_id=eq.${zona.id}&select=*,producto:productos(*)`);
-            
             const conteosFormateados = (conteosRaw || []).map(c => ({
               id: c.producto_id,
               zona_id: zona.id,
@@ -698,7 +670,6 @@
               cantidad: c.cantidad,
               ts: new Date(c.updated_at)
             }));
-            
             conteosFormateados.sort((a, b) => b.ts - a.ts);
             setConteos(conteosFormateados);
           } catch (e) {
@@ -706,7 +677,6 @@
           }
           setLoadingConteos(false);
         };
-        
         cargarConteos();
       }, [zona?.id]);
 
@@ -725,48 +695,33 @@
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           setCamR(true);
-          if (vidRef.current) {
-            vidRef.current.srcObject = stream;
-          }
+          if (vidRef.current) vidRef.current.srcObject = stream;
           const mod = await loadZx();
-          if (!mod) { 
-            stream.getTracks().forEach(t => t.stop());
-            setCamE('Error al cargar librería de escaneo.'); 
-            return;
-          }
+          if (!mod) { stream.getTracks().forEach(t => t.stop()); setCamE('Error al cargar librería de escaneo.'); return; }
           const { BrowserMultiFormatReader } = mod;
           const r = new BrowserMultiFormatReader();
           rdrRef.current = r;
           r.decodeFromVideoElement(vidRef.current, (result) => {
-            if (result) {
-              cerrarCam();
-              procCod(result.getText());
-            }
+            if (result) { cerrarCam(); procCod(result.getText()); }
           });
-        } catch (e) { 
-          setCamE(e.name === 'NotAllowedError' ? 'Permiso de cámara denegado' : 
-                  e.name === 'NotFoundError' ? 'No se encontró cámara' : 
-                  e.message || 'Error de cámara.'); 
+        } catch (e) {
+          setCamE(e.name === 'NotAllowedError' ? 'Permiso de cámara denegado' : e.name === 'NotFoundError' ? 'No se encontró cámara' : e.message || 'Error de cámara.');
           setCamO(false);
         }
       }, []);
 
-      const cerrarCam = useCallback(() => { 
-        rdrRef.current?.reset(); 
-        rdrRef.current = null; 
+      const cerrarCam = useCallback(() => {
+        rdrRef.current?.reset(); rdrRef.current = null;
         if (vidRef.current && vidRef.current.srcObject) {
           vidRef.current.srcObject.getTracks().forEach(t => t.stop());
           vidRef.current.srcObject = null;
         }
-        setCamO(false); 
-        setCamR(false); 
+        setCamO(false); setCamR(false);
       }, []);
 
       useEffect(() => () => {
         rdrRef.current?.reset();
-        if (vidRef.current && vidRef.current.srcObject) {
-          vidRef.current.srcObject.getTracks().forEach(t => t.stop());
-        }
+        if (vidRef.current && vidRef.current.srcObject) vidRef.current.srcObject.getTracks().forEach(t => t.stop());
       }, []);
 
       const procCod = useCallback(async cod => {
@@ -775,46 +730,35 @@
         const p = await buscarProducto(cod);
         setBuscando(false);
         if (!p) { setNoEnc(true); setTimeout(() => setNoEnc(false), 1800); return }
-        if (modo === 'unitario') { 
-          await sl(120); 
-          reg(p, 1, () => guardarConteo && guardarConteo(p.id, 1, zona.id)); 
-          tFlash();
-          setQuery(''); 
-          inpRef.current?.focus() 
-        }
-        else { setProd(p); setCantidad(1); setQuery(cod) }
+        if (modo === 'unitario') {
+          await sl(120);
+          reg(p, 1, () => guardarConteo && guardarConteo(p.id, 1, zona.id));
+          tFlash(); setQuery(''); inpRef.current?.focus();
+        } else { setProd(p); setCantidad(1); setQuery(cod) }
       }, [modo, buscarProducto, guardarConteo, zona.id]);
 
       const handleConf = async () => {
         if (!prod || cantidad < 1) return;
-        setConfirming(true); 
-        await sl(120); 
-        reg(prod, cantidad, () => guardarConteo && guardarConteo(prod.id, cantidad, zona.id)); 
-        tFlash();
-        setProd(null); 
-        setQuery(''); 
-        setCantidad(1); 
-        setConfirming(false); 
-        inpRef.current?.focus();
+        setConfirming(true); await sl(120);
+        reg(prod, cantidad, () => guardarConteo && guardarConteo(prod.id, cantidad, zona.id));
+        tFlash(); setProd(null); setQuery(''); setCantidad(1); setConfirming(false); inpRef.current?.focus();
       };
 
       useEffect(() => {
         if (!mOpen) return; clearTimeout(debRef.current);
         if (!mQ.trim()) { setMRes([]); return }
-        setMLoad(true); debRef.current = setTimeout(async () => { 
-          const r = await buscarProducto(mQ, true); 
-          setMRes(r); 
-          setMLoad(false) 
+        setMLoad(true); debRef.current = setTimeout(async () => {
+          const r = await buscarProducto(mQ, true); setMRes(r); setMLoad(false);
         }, 280);
       }, [mQ, mOpen, buscarProducto]);
 
       const openModal = () => { setMOpen(true); setMQ(''); setMRes([]); setCrearV(false); setNNom(''); setNSku(''); setNCant(''); setTimeout(() => mInpRef.current?.focus(), 80) };
       const closeModal = () => { setMOpen(false); setCrearV(false) };
       const selModal = p => { setProd(p); setQuery(p.sku); setCantidad(1); setModo('total'); closeModal() };
+
       const handleCrProd = async () => {
         if (!nNom.trim() || !nCant) return;
         setCrP(true);
-        
         try {
           const sesion = getSesion();
           const nuevoProducto = await apiPost('productos', {
@@ -822,23 +766,13 @@
             nombre: nNom.trim(),
             sku: nSku.trim() || null
           });
-          
           if (!nuevoProducto || nuevoProducto.length === 0) throw new Error('No se pudo crear el producto');
-          
           const prodData = nuevoProducto[0];
           const cantidadProd = parseInt(nCant) || 1;
           reg({ id: prodData.id, nombre: prodData.nombre, sku: prodData.sku }, cantidadProd, () => guardarConteo && guardarConteo(prodData.id, cantidadProd, zona.id));
-          tFlash();
-          
-          setCrP(false);
-          closeModal();
-          setProd(null);
-          setQuery('');
-          setCantidad(1);
-          inpRef.current?.focus();
+          tFlash(); setCrP(false); closeModal(); setProd(null); setQuery(''); setCantidad(1); inpRef.current?.focus();
         } catch (e) {
-          console.error('Error creando producto:', e);
-          setCrP(false);
+          console.error('Error creando producto:', e); setCrP(false);
         }
       };
 
@@ -873,11 +807,12 @@
                   p.sku && d('div', { style: { fontFamily: "'DM Mono',monospace", fontSize: 11, color: B, marginTop: 3, letterSpacing: '0.04em' } }, p.sku)
                 ), h(ChevR)
               ))
-                : mQ.length > 0 && !mLoad ? d('div', { style: { padding: '32px 16px', textAlign: 'center', color: '#9CA3AF', fontSize: 14 } }, `Sin resultados para "${mQ}"`)
+              : mQ.length > 0 && !mLoad
+                ? d('div', { style: { padding: '32px 16px', textAlign: 'center', color: '#9CA3AF', fontSize: 14 } }, `Sin resultados para "${mQ}"`)
                 : d('div', { style: { padding: '32px 16px', textAlign: 'center' } },
-                  d('svg', { width: 44, height: 44, viewBox: '0 0 24 24', fill: 'none', stroke: '#D1D5DB', strokeWidth: '1.2', strokeLinecap: 'square', style: { margin: '0 auto 12px', display: 'block' } }, d('circle', { cx: 11, cy: 11, r: 7 }), d('path', { d: 'M21 21l-4.35-4.35' })),
-                  d('div', { style: { color: '#9CA3AF', fontSize: 14 } }, 'Escribí para buscar')
-                )
+                    d('svg', { width: 44, height: 44, viewBox: '0 0 24 24', fill: 'none', stroke: '#D1D5DB', strokeWidth: '1.2', strokeLinecap: 'square', style: { margin: '0 auto 12px', display: 'block' } }, d('circle', { cx: 11, cy: 11, r: 7 }), d('path', { d: 'M21 21l-4.35-4.35' })),
+                    d('div', { style: { color: '#9CA3AF', fontSize: 14 } }, 'Escribí para buscar')
+                  )
             ),
             d('div', { style: { padding: '12px 16px', paddingBottom: 'max(env(safe-area-inset-bottom),12px)', borderTop: '1px solid #E5E7EB' } },
               d('button', { onClick: () => setCrearV(true), style: { width: '100%', padding: '14px 0', background: B, color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 } },
@@ -886,7 +821,7 @@
               )
             )
           )
-            : d('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' } },
+          : d('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' } },
               d('div', { style: { padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 } },
                 ...[
                   { lbl: 'Nombre del producto *', val: nNom, set: setNNom, ph: 'Ej: Coca Cola', mono: false },
@@ -894,13 +829,13 @@
                   { lbl: 'Cantidad *', val: nCant, set: setNCant, ph: '0', mono: false, type: 'number' },
                 ].map(({ lbl, val, set, ph, mono, type }) => d('div', { key: lbl },
                   d('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6B7280', marginBottom: 6 } }, lbl),
-                  d('input', { type: type || 'text', inputMode: type === 'number' ? 'numeric' : 'text', placeholder: ph, value: val, onChange: e => set(e.target.value), autoComplete: 'off', style: { width: '100%', height: 46, border: '2px solid #E5E7EB', padding: '0 14px', fontSize: 15, color: '#111827', background: '#F9FAFB', fontFamily: mono ? "'DM Mono',monospace" : 'inherit', letterSpacing: mono ? '0.05em' : 'normal' }, onFocus: e => e.target.style.borderColor = B, onBlur: e => e.target.style.borderColor = '#E5E7EB' })
+                  d('input', { type: type || 'text', inputMode: type === 'number' ? 'numeric' : 'text', placeholder: ph, value: val, onChange: e => set(e.target.value), autoComplete: 'off', style: { width: '100%', height: 46, border: '2px solid #E5E7EB', padding: '0 14px', fontSize: 15, color: '#111827', background: '#F9FAFB', fontFamily: mono ? "'DM Mono',monospace" : 'inherit' }, onFocus: e => e.target.style.borderColor = B, onBlur: e => e.target.style.borderColor = '#E5E7EB' })
                 )),
                 d('div', { style: { background: '#FEF9C3', border: '1px solid #FDE68A', padding: '10px 12px', fontSize: 12, color: '#92400E' } }, '⚠ El producto se creará y el conteo quedará registrado en esta zona.')
               ),
               d('div', { style: { padding: '12px 16px', paddingBottom: 'max(env(safe-area-inset-bottom),12px)', borderTop: '1px solid #E5E7EB', display: 'flex', gap: 10 } },
                 d('button', { onClick: () => setCrearV(false), style: { flex: 1, padding: '14px 0', background: '#F3F4F6', border: 'none', fontWeight: 600, fontSize: 14, color: '#374151', cursor: 'pointer' } }, '← Volver'),
-                d('button', { onClick: handleCrProd, disabled: crP || !nNom.trim() || !nSku.trim() || !nCant, style: { flex: 2, padding: '14px 0', background: (!nNom.trim() || !nSku.trim() || !nCant || crP) ? G + '99' : G, color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, letterSpacing: '0.05em', textTransform: 'uppercase', cursor: (!nNom.trim() || !nSku.trim() || !nCant || crP) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 } },
+                d('button', { onClick: handleCrProd, disabled: crP || !nNom.trim() || !nCant, style: { flex: 2, padding: '14px 0', background: (!nNom.trim() || !nCant || crP) ? G + '99' : G, color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, letterSpacing: '0.05em', textTransform: 'uppercase', cursor: (!nNom.trim() || !nCant || crP) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 } },
                   crP ? [h(Spinner), ' Creando...'] : '✓ Guardar y contar'
                 )
               )
@@ -914,13 +849,13 @@
           ...[{ top: 0, left: 0 }, { top: 0, right: 0 }, { bottom: 0, left: 0 }, { bottom: 0, right: 0 }].map((p, i) => {
             const bt = i < 2 ? `3px solid ${G}` : undefined, bb = i >= 2 ? `3px solid ${G}` : undefined;
             const bl = i % 2 === 0 ? `3px solid ${G}` : undefined, br = i % 2 === 1 ? `3px solid ${G}` : undefined;
-            return d('div', { key: i, style: { position: 'absolute', width: 26, height: 26, borderTop: bt, borderBottom: bb, borderLeft: bl, borderRight: br, ...p } })
+            return d('div', { key: i, style: { position: 'absolute', width: 26, height: 26, borderTop: bt, borderBottom: bb, borderLeft: bl, borderRight: br, ...p } });
           }),
           camR && d('div', { className: 'pulse', style: { position: 'absolute', left: 0, right: 0, top: '50%', height: 2, background: G } })
         ),
         camE ? d('div', { style: { color: '#FCA5A5', fontSize: 14, textAlign: 'center', maxWidth: 300 } }, camE)
-        : !camR ? d('div', { style: { color: '#9CA3AF', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 } }, d('div', { className: 'spin', style: { width: 16, height: 16, border: '2px solid #4B5563', borderTopColor: G, borderRadius: '50%' } }), ' Iniciando cámara...')
-        : d('div', { style: { color: '#D1D5DB', fontSize: 14 } }, 'Apuntá al código de barras'),
+          : !camR ? d('div', { style: { color: '#9CA3AF', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 } }, d('div', { className: 'spin', style: { width: 16, height: 16, border: '2px solid #4B5563', borderTopColor: G, borderRadius: '50%' } }), ' Iniciando cámara...')
+          : d('div', { style: { color: '#D1D5DB', fontSize: 14 } }, 'Apuntá al código de barras'),
         d('button', { onClick: cerrarCam, style: { padding: '13px 36px', background: 'transparent', border: '2px solid #4B5563', color: '#D1D5DB', fontWeight: 600, fontSize: 14, cursor: 'pointer', letterSpacing: '0.05em', textTransform: 'uppercase' } }, 'Cancelar')
       );
 
@@ -975,7 +910,7 @@
                     )
                   ),
                   d('div', { style: { display: 'flex', justifyContent: 'flex-end' } },
-                    d('button', { onClick: () => { setProd({ id: c.id, nombre: c.nombre, variante: c.variante, sku: c.sku }); setCantidad(c.cantidad); setModo('total'); setQuery(c.sku); setSub('conteo') }, style: { width: 36, height: 36, background: '#F9FAFB', border: '1px solid #E5E7EB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+                    d('button', { onClick: () => { setProd({ id: c.id, nombre: c.nombre, sku: c.sku }); setCantidad(c.cantidad); setModo('total'); setQuery(c.sku); setSub('conteo') }, style: { width: 36, height: 36, background: '#F9FAFB', border: '1px solid #E5E7EB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
                       d('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: '#6B7280', strokeWidth: '2.2', strokeLinecap: 'square' }, d('polyline', { points: '1 4 1 10 7 10' }), d('path', { d: 'M3.51 15a9 9 0 102.13-9.36L1 10' }))
                     )
                   )
@@ -985,7 +920,7 @@
             d('button', { onClick: () => setSub('conteo'), style: { flex: 1, padding: '14px 0', background: '#F3F4F6', border: 'none', fontWeight: 700, fontSize: 13, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#374151', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 } },
               d('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2.5', strokeLinecap: 'square' }, d('path', { d: 'M19 12H5M12 5l-7 7 7 7' })), ' Volver'
             ),
-            d('button', { onClick: () => exportarCSV(inv, zonas, conteos), style: { flex: 1, padding: '14px 0', background: B, color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, letterSpacing: '0.05em', textTransform: 'uppercase', cursor: 'pointer' } }, 'Exportar')
+            d('button', { onClick: () => exportarCSV(inv, [], conteos), style: { flex: 1, padding: '14px 0', background: B, color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, letterSpacing: '0.05em', textTransform: 'uppercase', cursor: 'pointer' } }, 'Exportar')
           )
         ),
         sub === 'conteo' && d(Fragment, null,
@@ -1076,158 +1011,96 @@
       const [zonaActiva, setZonaActiva] = useState(null);
       const [error, setError] = useState(null);
       const [todosConteos, setTodosConteos] = useState([]);
-      let touchStartY = 0;
-      let touchPullDistance = 0;
 
-      // Cargar inventario activo
       const cargarInventario = async () => {
         setLoading(true);
         setError(null);
         try {
           const sesion = getSesion();
-          if (!sesion?.licencia_id) {
-            setError('Sesión inválida');
-            setLoading(false);
-            return;
-          }
-          
+          if (!sesion?.licencia_id) { setError('Sesión inválida'); setLoading(false); return; }
+
           const licenciaActiva = await verificarLicencia(sesion.licencia_id);
-          if (!licenciaActiva) {
-            setError('Tu licencia ha expirado o está inactiva');
-            setLoading(false);
-            return;
-          }
-          
+          if (!licenciaActiva) { setError('Tu licencia ha expirado o está inactiva'); setLoading(false); return; }
+
           const inventariosData = await apiGet(`inventarios?licencia_id=eq.${sesion.licencia_id}&order=created_at.desc&limit=50`);
-          if (!inventariosData || !Array.isArray(inventariosData)) {
-            setInventarios([]);
-          } else {
-            setInventarios(inventariosData);
-          }
-          
+          if (!inventariosData || !Array.isArray(inventariosData)) { setInventarios([]); } else { setInventarios(inventariosData); }
+
           const inventarioAbierto = inventariosData?.find(i => i.estado === 'abierto');
-          
-          if (!inventarioAbierto) {
-            setInv(null);
-            setZonas([]);
-            setLoading(false);
-            return;
-          }
-          
+          if (!inventarioAbierto) { setInv(null); setZonas([]); setLoading(false); return; }
+
           const zonasData = await apiGet(`zonas?inventario_id=eq.${inventarioAbierto.id}&activa=eq.true&order=orden&limit=50`);
-          
-          // Cargar conteos en paralelo
-          const conteosPromises = (zonasData || []).map(zona => 
+
+          const conteosPromises = (zonasData || []).map(zona =>
             apiGet(`conteo_producto?zona_id=eq.${zona.id}&select=*,producto:productos(*)&limit=100`)
           );
           const conteosResults = await Promise.all(conteosPromises);
-          
+
           const conteosData = [];
           (zonasData || []).forEach((zona, idx) => {
             const conteosRaw = conteosResults[idx] || [];
             (conteosRaw || []).forEach(c => {
               conteosData.push({
-                id: c.producto_id,
-                zona_id: zona.id,
-                nombre: c.producto?.nombre || 'Sin nombre',
-                sku: c.producto?.sku || '-',
-                cantidad: c.cantidad,
-                ts: new Date(c.updated_at)
+                id: c.producto_id, zona_id: zona.id,
+                nombre: c.producto?.nombre || 'Sin nombre', sku: c.producto?.sku || '-',
+                cantidad: c.cantidad, ts: new Date(c.updated_at)
               });
             });
           });
-          
+
           setInv(inventarioAbierto);
           setZonas(zonasData || []);
           setTodosConteos(conteosData);
-          
+
           const totalProds = (zonasData || []).reduce((sum, z) => sum + (z.total_productos || 0), 0);
           if (totalProds > 0 && inventarioAbierto.total_productos !== totalProds) {
-            await apiPatch('inventarios', `?id=eq.${inventarioAbierto.id}`, '', { total_productos: totalProds });
+            // FIX: correct apiPatch signature
+            await apiPatch('inventarios', `?id=eq.${inventarioAbierto.id}`, { total_productos: totalProds });
           }
-          
         } catch (e) {
           setError('Error al cargar inventario: ' + e.message);
         }
         setLoading(false);
       };
-      
-      // Finalizar inventario
+
       const finalizarInventario = async () => {
         if (!inv) return;
         setSyncing(true);
         try {
-          await apiPatch('inventarios', `?id=eq.${inv.id}`, '', { estado: 'finalizado' });
+          // FIX: correct apiPatch signature
+          await apiPatch('inventarios', `?id=eq.${inv.id}`, { estado: 'finalizado' });
           await cargarInventario();
         } catch (e) {
           console.error('Error finalizando inventario:', e);
         }
         setSyncing(false);
       };
-      
-      // Cambiar inventario
+
       const cambiarInventario = async (invId) => {
         const invSeleccionado = inventarios.find(i => i.id === parseInt(invId));
         if (!invSeleccionado) return;
-        
         setLoading(true);
         try {
           const zonasData = await apiGet(`zonas?inventario_id=eq.${invId}&activa=eq.true&order=orden`);
           const conteosData = [];
-          
           for (const zona of (zonasData || [])) {
             const conteosRaw = await apiGet(`conteo_producto?zona_id=eq.${zona.id}&select=*,producto:productos(*)`);
             (conteosRaw || []).forEach(c => {
               conteosData.push({
-                id: c.producto_id,
-                zona_id: zona.id,
-                nombre: c.producto?.nombre || 'Sin nombre',
-                sku: c.producto?.sku || '-',
-                cantidad: c.cantidad,
-                ts: new Date(c.updated_at)
+                id: c.producto_id, zona_id: zona.id,
+                nombre: c.producto?.nombre || 'Sin nombre', sku: c.producto?.sku || '-',
+                cantidad: c.cantidad, ts: new Date(c.updated_at)
               });
             });
           }
-          
-          setInv(invSeleccionado);
-          setZonas(zonasData || []);
-          setTodosConteos(conteosData);
-          setScreen('inventario');
-        } catch (e) {
-          console.error('Error cambiando inventario:', e);
-        }
+          setInv(invSeleccionado); setZonas(zonasData || []); setTodosConteos(conteosData); setScreen('inventario');
+        } catch (e) { console.error('Error cambiando inventario:', e); }
         setLoading(false);
       };
-      
-      // Pull to refresh
-      const handleTouchStart = (e) => {
-        if (window.scrollY === 0) {
-          touchStartY = e.touches[0].clientY;
-        }
-      };
-      
-      const handleTouchMove = (e) => {
-        if (touchStartY > 0 && window.scrollY === 0) {
-          touchPullDistance = Math.max(0, e.touches[0].clientY - touchStartY);
-          if (touchPullDistance > 100) {
-            cargarInventario();
-            touchStartY = 0;
-            touchPullDistance = 0;
-          }
-        }
-      };
-      
-      const handleTouchEnd = () => {
-        touchStartY = 0;
-        touchPullDistance = 0;
-      };
 
-      // Buscar producto por código o texto
       const buscarProducto = async (texto, esBusqueda = false) => {
         try {
           const sesion = getSesion();
           if (!sesion?.licencia_id) return esBusqueda ? [] : null;
-          
           if (esBusqueda) {
             const data = await apiGet(`productos?licencia_id=eq.${sesion.licencia_id}&or=(nombre.ilike.%25${encodeURIComponent(texto)}%25,sku.ilike.%25${encodeURIComponent(texto)}%25)&limit=20`);
             return Array.isArray(data) ? data : [];
@@ -1241,25 +1114,22 @@
         }
       };
 
-      // Guardar conteo
       const guardarConteo = async (productoId, cantidad, zonaId) => {
         setSyncing(true);
         try {
           const existente = await apiGet(`conteo_producto?zona_id=eq.${zonaId}&producto_id=eq.${productoId}&select=id`);
-          
+
           if (existente && existente.length > 0) {
-            await apiPatch(`conteo_producto?id=eq.${existente[0].id}`, '', { cantidad });
+            // FIX: apiPatch(tabla, params, data) — was passing tabla+params merged as first arg
+            await apiPatch('conteo_producto', `?id=eq.${existente[0].id}`, { cantidad });
           } else {
-            await apiPost('conteo_producto', {
-              zona_id: zonaId,
-              producto_id: productoId,
-              cantidad: cantidad
-            });
+            await apiPost('conteo_producto', { zona_id: zonaId, producto_id: productoId, cantidad });
           }
-          
+
           const conteosCount = await apiGet(`conteo_producto?zona_id=eq.${zonaId}&select=id`);
-          await apiPatch(`zonas?id=eq.${zonaId}`, '', { productos_contados: conteosCount.length });
-          
+          // FIX: same signature fix here
+          await apiPatch('zonas', `?id=eq.${zonaId}`, { productos_contados: conteosCount.length });
+
           setTimeout(() => setSyncing(false), 500);
         } catch (e) {
           console.error('Error guardando conteo:', e);
@@ -1269,15 +1139,8 @@
 
       useEffect(() => {
         const sesion = getSesion();
-        if (!sesion) {
-          window.location.href = 'login.html';
-          return;
-        }
-        
-        // Asegurar que existe device_id
+        if (!sesion) { window.location.href = 'login.html'; return; }
         const deviceId = getDeviceId();
-        
-        // Verificar que la terminal esté registrada con esta licencia
         fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${sesion.licencia_id}&select=id`, {
           headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
         }).then(res => res.json()).then(data => {
@@ -1285,12 +1148,8 @@
             document.cookie = 'sesion=;path=/;max-age=0';
             alert('Esta terminal no está activada para esta cuenta. Primero activá la terminal desde login.');
             window.location.href = 'login.html';
-          } else {
-            cargarInventario();
-          }
-        }).catch(() => {
-          cargarInventario();
-        });
+          } else { cargarInventario(); }
+        }).catch(() => { cargarInventario(); });
       }, []);
 
       const goZonas = () => { setScreen('zonas'); setZonaActiva(null) };
@@ -1298,24 +1157,12 @@
       const goConteo = z => { setZonaActiva(z); setScreen('conteo') };
 
       const handleLogout = async () => {
-        // Limpiar datos offline al cerrar sesión
         if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-          try {
-            navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_OFFLINE_DATA' });
-          } catch (e) {
-            console.log('Could not clear offline data:', e);
-          }
+          try { navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_OFFLINE_DATA' }); } catch (e) {}
         }
-        
-        // Limpiar IndexedDB local si está disponible
         if (window.indexedDB && typeof window.indexedDB.deleteDatabase === 'function') {
-          try {
-            window.indexedDB.deleteDatabase('ConteoOfflineDB');
-          } catch (e) {
-            console.log('Could not delete IndexedDB:', e);
-          }
+          try { window.indexedDB.deleteDatabase('ConteoOfflineDB'); } catch (e) {}
         }
-        
         clearSesion();
         window.location.href = 'login.html';
       };
@@ -1323,59 +1170,41 @@
       const handleCrearZona = async (zona) => {
         try {
           const data = await apiPost('zonas', {
-            inventario_id: inv.id,
-            nombre: zona.nombre,
+            inventario_id: inv.id, nombre: zona.nombre,
             descripcion: zona.descripcion || null,
-            productos_contados: 0,
-            total_productos: 0,
-            finalizada: false,
-            activa: true
+            productos_contados: 0, total_productos: 0,
+            finalizada: false, activa: true
           });
-          
-          if (data && data.length > 0) {
-            setZonas(prev => [...prev, data[0]]);
-          }
-        } catch (e) {
-          console.error('Error creando zona:', e);
-        }
+          if (data && data.length > 0) setZonas(prev => [...prev, data[0]]);
+        } catch (e) { console.error('Error creando zona:', e); }
       };
 
       const finZona = async (id) => {
         try {
-          await apiPatch(`zonas?id=eq.${id}`, '', { finalizada: true });
+          // FIX: correct apiPatch signature
+          await apiPatch('zonas', `?id=eq.${id}`, { finalizada: true });
           setZonas(prev => prev.map(z => z.id === id ? { ...z, finalizada: true } : z));
-        } catch (e) {
-          console.error('Error finalizando zona:', e);
-        }
+        } catch (e) { console.error('Error finalizando zona:', e); }
       };
 
       if (screen === 'inventario') return d(Fragment, null, h(OfflineIndicator), h(InventarioScreen, { inv, zonas, loading, syncing, inventarios, onEntrar: goZonas, onLogout: handleLogout, onCambiarInv: cambiarInventario, onFinalizarInv: finalizarInventario }));
       if (screen === 'zonas') return d(Fragment, null, h(OfflineIndicator), h(ZonasScreen, { inv, zonas, loading, onBack: goInventario, onZonaSelect: goConteo, onCrearZona: handleCrearZona }));
-      if (screen === 'conteo' && zonaActiva) return d(Fragment, null, h(OfflineIndicator), h(ConteoScreen, { zona: zonaActiva, inv, zonas: zonas, conteos: todosConteos, onBack: goZonas, onZonaFinalizada: finZona, buscarProducto, guardarConteo, crearProducto: null }));
+      if (screen === 'conteo' && zonaActiva) return d(Fragment, null, h(OfflineIndicator), h(ConteoScreen, { zona: zonaActiva, inv, zonas, conteos: todosConteos, onBack: goZonas, onZonaFinalizada: finZona, buscarProducto, guardarConteo, crearProducto: null }));
       return null;
     }
 
     createRoot(document.getElementById('root')).render(h(App, null));
 
     document.addEventListener('touchstart', (e) => {
-      if (window.scrollY === 0) {
-        window.touchStartY = e.touches[0].clientY;
-      }
+      if (window.scrollY === 0) window.touchStartY = e.touches[0].clientY;
     });
-    
     document.addEventListener('touchmove', (e) => {
       if (window.touchStartY && window.scrollY === 0) {
         const pullDistance = e.touches[0].clientY - window.touchStartY;
-        if (pullDistance > 80) {
-          window.touchStartY = 0;
-          location.reload();
-        }
+        if (pullDistance > 80) { window.touchStartY = 0; location.reload(); }
       }
     });
-    
-    document.addEventListener('touchend', () => {
-      window.touchStartY = 0;
-    });
+    document.addEventListener('touchend', () => { window.touchStartY = 0; });
   </script>
 </body>
 </html>
