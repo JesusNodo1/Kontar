@@ -336,7 +336,7 @@
     }
 
     async function verificarLicencia(licenciaId) {
-      const data = await apiGet(`licencias?id=eq.${licenciaId}&activa=eq.true&select=id`);
+      const data = await apiGet('licencias', `?id=eq.${licenciaId}&activa=eq.true&select=id`);
       return data && data.length > 0;
     }
 
@@ -702,8 +702,9 @@
         const cargarConteos = async () => {
           if (!zona?.id) return;
           setLoadingConteos(true);
-          try {
-            const conteosRaw = await apiGet(`conteo_producto?zona_id=eq.${zona.id}&select=*,producto:productos(*)`);
+        try {
+          const conteosRaw = await apiGet('conteo_producto', `?zona_id=eq.${zona.id}&select=*,producto:productos(*)`);
+
             
             const conteosFormateados = (conteosRaw || []).map(c => ({
               id: c.producto_id,
