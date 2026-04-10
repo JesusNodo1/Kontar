@@ -55,13 +55,9 @@
           }
           if (!database.objectStoreNames.contains('metadata')) database.createObjectStore('metadata', { keyPath: 'key' });
         };
-      }
-
-          if (!database.objectStoreNames.contains('metadata')) database.createObjectStore('metadata', { keyPath: 'key' });
-        };
-        resolve(request.result);
       });
     }
+
 
     async function dbGetOffline(storeName, key) {
       const database = await openOfflineDB();
