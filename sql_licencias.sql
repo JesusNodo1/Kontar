@@ -42,18 +42,37 @@ alter table perfiles add column if not exists password text;
 alter table perfiles add column if not exists licencia_id int;
 alter table perfiles add column if not exists estado text default 'ACTIVO';
 
--- Policies
-drop policy if exists "Public_licencias" on licencias;
-create policy "Public_licencias" on licencias for all using (true) with check (true);
+-- Habilitar RLS
+alter table licencias enable row level security;
+alter table dispositivos enable row level security;
+alter table usuarios_admin enable row level security;
+alter table perfiles enable row level security;
 
-drop policy if exists "Public_dispositivos" on dispositivos;
-create policy "Public_dispositivos" on dispositivos for all using (true) with check (true);
+-- Policies por operación (más restrictivas que "FOR ALL")
 
+-- usuarios_admin: solo lectura (login del vendedor)
 drop policy if exists "Public_usuarios_admin" on usuarios_admin;
-create policy "Public_usuarios_admin" on usuarios_admin for all using (true) with check (true);
+create policy "anon_select_usuarios_admin" on usuarios_admin for select using (true);
+
+-- licencias: lectura + escritura, sin DELETE
+drop policy if exists "Public_licencias" on licencias;
+create policy "anon_select_licencias" on licencias for select using (true);
+create policy "anon_insert_licencias" on licencias for insert with check (true);
+create policy "anon_update_licencias" on licencias for update using (true) with check (true);
+
+-- dispositivos: lectura + insert, sin UPDATE ni DELETE
+drop policy if exists "Public_dispositivos" on dispositivos;
+create policy "anon_select_dispositivos" on dispositivos for select using (true);
+create policy "anon_insert_dispositivos" on dispositivos for insert with check (true);
+
+-- perfiles: lectura + escritura, sin DELETE
+drop policy if exists "Public_perfiles" on perfiles;
+create policy "anon_select_perfiles" on perfiles for select using (true);
+create policy "anon_insert_perfiles" on perfiles for insert with check (true);
+create policy "anon_update_perfiles" on perfiles for update using (true) with check (true);
 
 -- Usuario admin inicial
-insert into usuarios_admin (email, password, nombre) 
+insert into usuarios_admin (email, password, nombre)
 values ('admin@conteo.com', 'admin123', 'Administrador')
 on conflict (email) do nothing;
 

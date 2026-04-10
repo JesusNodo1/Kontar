@@ -123,6 +123,16 @@
             return;
           }
 
+          const devCountRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?licencia_id=eq.${licencia.id}&select=id`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          const devCount = await devCountRes.json();
+          if (devCount && devCount.length >= licencia.limite_dispositivos) {
+            setError(`Límite de dispositivos alcanzado (${licencia.limite_dispositivos}). Contactá al administrador.`);
+            setLoading(false);
+            return;
+          }
+
           const userRes = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&licencia_id=eq.${licencia.id}&select=id,nombre,email,rol,estado,licencia_id`, {
             headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
           });
