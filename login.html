@@ -37,12 +37,41 @@
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpldXBuZnh6YXdncnRkZG5odmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODY5NTgsImV4cCI6MjA5MTA2Mjk1OH0.qmABLeL-3iJ3f6l7GdDnEshweuUtSM5YRSTSzby9N0g';
 
     // ============================================
+    // FETCH CON RETRY PARA ERRORES 503
+    // ============================================
+
+    async function fetchWithRetry(url, options = {}, retries = 3, delay = 1000) {
+      for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+          const res = await fetch(url, options);
+          if (res.ok) return res;
+          if (res.status === 503 && attempt < retries - 1) {
+            console.log(`Intento ${attempt + 1}falló, reintentando en ${delay}ms...`);
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2; // Exponential backoff
+            continue;
+          }
+          return res;
+        } catch (e) {
+          if (attempt < retries - 1) {
+            console.log(`Error de conexión, reintentando...`, e.message);
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2;
+            continue;
+          }
+          throw e;
+        }
+      }
+      throw new Error('Max retries exceeded');
+    }
+
+    // ============================================
     // API CON MEJOR MANEJO DE ERRORES
     // ============================================
 
     async function apiGet(tabla, params = '') {
       try {
-        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}${params}&limit=50`, {
+        const res = await fetchWithRetry(`${supabaseUrl}/rest/v1/${tabla}${params}&limit=50`, {
           headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
