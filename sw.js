@@ -43,9 +43,10 @@ function openDB() {
       if (!database.objectStoreNames.contains('productos')) {
         database.createObjectStore('productos', { keyPath: 'id' });
       }
-      if (!database.objectStoreNames.contains('conteos')) {
-        database.createObjectStore('conteos', { keyPath: 'id', autoIncrement: true });
-      }
+       if (!database.objectStoreNames.contains('conteo_producto')) {
+         database.createObjectStore('conteo_producto', { keyPath: 'id', autoIncrement: true });
+       }
+
       if (!database.objectStoreNames.contains('queue')) {
         const queueStore = database.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
         queueStore.createIndex('timestamp', 'timestamp');
@@ -345,8 +346,9 @@ async function handleApiRequest(request) {
           _pendingSync: true
         };
         
-        if (tabla === 'conteos' || tabla === 'conteo_producto') {
-          await dbPut('conteos', localItem);
+         if (tabla === 'conteo_producto') {
+           await dbPut('conteo_producto', localItem);
+
         }
         
         self.clients.matchAll().then(clients => {
@@ -389,7 +391,7 @@ self.addEventListener('message', event => {
 async function clearAllOfflineData() {
   try {
     const database = await openDB();
-    const stores = ['inventarios', 'zonas', 'productos', 'conteos', 'queue', 'sesion', 'metadata'];
+    const stores = ['inventarios', 'zonas', 'productos', 'conteo_producto', 'queue', 'sesion', 'metadata'];
     
     for (const storeName of stores) {
       if (database.objectStoreNames.contains(storeName)) {

@@ -24,12 +24,11 @@
 <body>
   <div id="root"></div>
   <script type="module">
-    const VERSION = 'v=2';
     import { createElement as h, useState, useEffect, useRef } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
     import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
+    import { Api, CookieManager, Utils } from './api.js';
 
     const B = '#3B82F6', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F4', G = '#10B981', GL = '#F0FDF4', Y = '#F59E0B', YL = '#FFFBEB';
-
     const d = (tag, props, ...kids) => h(tag, props, ...kids.flat());
     const Spinner = ({ size = 15 }) => d('div', { className: 'spin', style: { width: size, height: size } });
 
@@ -66,53 +65,16 @@
     }
 
     // ============================================
-    // API CON MEJOR MANEJO DE ERRORES
+    // LOGIN / REGISTRO / SESIÓN (USA API.JS)
     // ============================================
 
-    async function apiGet(tabla, params = '') {
-      try {
-        const res = await fetchWithRetry(`${supabaseUrl}/rest/v1/${tabla}${params}&limit=50`, {
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
-      } catch (e) {
-        console.error('API GET error:', e);
-        return null;
-      }
-    }
-
-    async function apiPost(tabla, data) {
-      try {
-        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}`, {
-          method: 'POST',
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-          body: JSON.stringify(data)
-        });
-        if (!res.ok) {
-          const err = await res.text();
-          throw new Error(err);
-        }
-        return await res.json();
-      } catch (e) {
-        console.error('API POST error:', e);
-        throw e;
-      }
-    }
-
-    // ============================================
-    // VALIDACIONES
-    // ============================================
-
-    function validarEmail(email) {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    }
-
-    function validarCodigo(codigo) {
-      return /^CNT-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(codigo);
-    }
-
-    function getCookie(name) {
+    function getCookie(name) { return CookieManager.get(name); }
+    function setCookie(name, value, days) { CookieManager.set(name, value, days); }
+    function getDeviceId() { return CookieManager.getDeviceId(); }
+    function getSesion() { return CookieManager.getSesion(); }
+    function guardarSesion(usuario) { CookieManager.guardarSesion(usuario); }
+    function validarEmail(email) { return Utils.validarEmail(email); }
+    function validarCodigo(codigo) { return Utils.validarCodigoLicencia(codigo); }
       const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
       return match ? match[2] : null;
     }
@@ -163,12 +125,31 @@
           const deviceId = getDeviceId();
 
           // Verificar licencia
-          const res = await fetch(`${supabaseUrl}/rest/v1/licencias?codigo=eq.${encodeURIComponent(codigo)}&select=*`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-          });
+          const licRes = await Api.get('licencias', `?codigo=eq.${encodeURIComponent(codigo)}&select=*`);
+          const licencias = licRes.data;
+
+          if (!licencias || licencias.length === 0) {
+            setError('Código de licencia inválido');
+            setLoading(false);
+            return;
+          }
+
+          const licencia = licencias[0];
           
-          if (!res.ok) {
-            throw new Error('Error al verificar licencia');
+          if (!licencia.activa) {
+            setError('La licencia está inactiva');
+            setLoading(false);
+            return;
+          }
+
+          // Verificar dispositivo existente
+          const devRes = await Api.get('dispositivos', `?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`);
+          const dispositivoExistente = devRes.data;
+
+          if (dispositivoExistente && dispositivoExistente.length > 0) {
+            setError('Esta terminal ya está registrada con esta licencia. Usá "Iniciar Sesión" con tu email y contraseña.');
+            setLoading(false);
+            return;
           }
           
           const licencias = await res.json();
@@ -194,10 +175,8 @@
           }
 
           // Verificar dispositivo existente
-          const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-          });
-          const dispositivoExistente = devRes.ok ? await devRes.json() : [];
+          const devRes = await Api.get('dispositivos', `?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`);
+          const dispositivoExistente = devRes.data;
 
           if (dispositivoExistente && dispositivoExistente.length > 0) {
             setError('Esta terminal ya está registrada con esta licencia. Usá "Iniciar Sesión" con tu email y contraseña.');
@@ -205,10 +184,9 @@
             return;
           }
 
-          const userRes = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&licencia_id=eq.${licencia.id}&select=id,nombre,email,rol,estado,licencia_id`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-          });
-          const userExistente = userRes.ok ? await userRes.json() : [];
+          // Verificar usuario
+          const userRes = await Api.get('perfiles', `?email=eq.${encodeURIComponent(email)}&licencia_id=eq.${licencia.id}&select=id,nombre,email,rol,estado,licencia_id`);
+          const userExistente = userRes.data;
 
           let usuario;
 
@@ -222,26 +200,25 @@
           } else {
             const passwordPlano = Math.random().toString(36).substr(2, 8);
 
-            const createRes = await fetch(`${supabaseUrl}/rest/v1/perfiles`, {
-              method: 'POST',
-              headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-              body: JSON.stringify({
-                licencia_id: licencia.id,
-                email: email,
-                password: passwordPlano,
-                nombre: email.split('@')[0],
-                rol: 'administrador',
-                estado: 'ACTIVO'
-              })
+            const createRes = await Api.post('perfiles', {
+              licencia_id: licencia.id,
+              email: email,
+              password: passwordPlano,
+              nombre: email.split('@')[0],
+              rol: 'administrador',
+              estado: 'ACTIVO'
             });
             
-            if (!createRes.ok) {
-              const errText = await createRes.text();
-              console.error('Error creando usuario:', createRes.status, errText);
-              setError('Error al crear usuario: ' + errText);
+            if (!createRes.success) {
+              setError('Error al crear usuario: ' + (createRes.error || 'Error desconocido'));
               setLoading(false);
               return;
             }
+            
+            const nuevo = createRes.data[0];
+            usuario = nuevo;
+            setCookie('temp_password', passwordPlano, 7);
+          }
             
             if (!createRes.ok) {
               const errText = await createRes.text();
@@ -260,31 +237,27 @@
             setCookie('temp_password', passwordPlano, 7);
           }
 
-          // Registrar dispositivo
-          const regDevRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos`, {
-            method: 'POST',
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+            // Registrar dispositivo
+            const regDevRes = await Api.post('dispositivos', {
               licencia_id: licencia.id,
               dispositivo_id: deviceId,
               nombre_dispositivo: navigator.userAgent.substring(0, 100)
-            })
-          });
-          
-          if (!regDevRes.ok) {
-            console.error('Error registrando dispositivo');
+            });
+            
+            if (!regDevRes.success) {
+              console.error('Error registrando dispositivo:', regDevRes.error);
+            }
+
+            // Redirigir a login (NO guardar sesión para forzar login manual)
+            alert('¡Terminal activada! Ahora iniciá sesión con tu email y contraseña.');
+            window.location.href = 'login.html';
+
+          } catch (err) {
+            console.error('Error:', err);
+            setError('Error de conexión: ' + (err.message || 'Verificá que la tabla dispositivos exista'));
           }
-
-          // Redirigir a login (NO guardar sesión para forzar login manual)
-          alert('¡Terminal activada! Ahora iniciá sesión con tu email y contraseña.');
-          window.location.href = 'login.html';
-
-        } catch (err) {
-          console.error('Error:', err);
-          setError('Error de conexión: ' + (err.message || 'Verificá que la tabla dispositivos exista'));
-        }
-        setLoading(false);
-      };
+          setLoading(false);
+        };
 
       return d('div', { style: { minHeight: '100vh', background: '#F3F4F6', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 } },
         d('div', { style: { width: '100%', maxWidth: 400 } },
@@ -403,11 +376,9 @@
         setError('');
 
         try {
-          // 1. Obtener usuario por email (sin contraseña en query)
-          const res = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&estado=eq.ACTIVO&select=id,nombre,email,rol,estado,licencia_id,password`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-          });
-          const data = await res.json();
+          // 1. Obtener usuario por email
+          const userRes = await Api.get('perfiles', `?email=eq.${encodeURIComponent(email)}&estado=eq.ACTIVO&select=id,nombre,email,rol,estado,licencia_id,password`);
+          const data = userRes.data;
 
           if (!data || data.length === 0) {
             recordAttempt(email, false);
@@ -418,15 +389,7 @@
 
           const usuario = data[0];
           
-          // Verificar que el usuario tenga password
-          if (!usuario.password) {
-            console.error('Usuario sin password:', usuario);
-            setError('Error: usuario sin contraseña. Contactá al administrador.');
-            setLoading(false);
-            return;
-          }
-          
-          // 2. Verificar contraseña (texto plano, sin espacios)
+          // 2. Verificar contraseña (texto plano)
           const passwordIngresada = password.trim();
           const passwordAlmacenada = (usuario.password || '').trim();
           

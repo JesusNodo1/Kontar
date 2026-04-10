@@ -23,9 +23,9 @@
   <script type="module">
     import { createElement as h, useState, useEffect } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
     import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
+    import { Api, CookieManager, Utils, SessionManager } from './api.js';
 
     const B = '#3B82F6', G = '#10B981', GD = '#059669', GL = '#F0FDF4', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F2', Y = '#F59E0B', YL = '#FFFBEB', BL = '#EFF6FF';
-
     const d = (tag, props, ...kids) => h(tag, props, ...kids.flat());
     const Spinner = ({ size = 20 }) => d('div', { className: 'spin', style: { width: size, height: size } });
 
@@ -44,68 +44,35 @@
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpldXBuZnh6YXdncnRkZG5odmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODY5NTgsImV4cCI6MjA5MTA2Mjk1OH0.qmABLeL-3iJ3f6l7GdDnEshweuUtSM5YRSTSzby9N0g';
 
     async function query(tabla, filtro = '') {
-      try {
-        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}${filtro}&limit=100`, {
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        return Array.isArray(data) ? data : [];
-      } catch (e) {
-        console.error('Query error:', e);
-        alert('Error de conexión. Verificá tu internet.');
-        return [];
-      }
+      const res = await Api.get(tabla, filtro);
+      return res.data;
     }
 
     async function insert(tabla, data) {
-      try {
-        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}`, {
-          method: 'POST',
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-          body: JSON.stringify(data)
-        });
-        if (!res.ok) {
-          const err = await res.text();
-          throw new Error(err);
-        }
-        return await res.json();
-      } catch (e) {
-        console.error('Insert error:', e);
-        alert('Error al guardar: ' + e.message);
+      const res = await Api.post(tabla, data);
+      if (!res.success) {
+        alert('Error al guardar: ' + res.error);
         return null;
       }
+      return res.data[0];
     }
 
     async function update(tabla, id, data, campo = 'id') {
-      try {
-        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}?${campo}=eq.${id}`, {
-          method: 'PATCH',
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return true;
-      } catch (e) {
-        console.error('Update error:', e);
-        alert('Error al actualizar');
+      const res = await Api.patch(tabla, `?${campo}=eq.${id}`, data);
+      if (!res.success) {
+        alert('Error al actualizar: ' + res.error);
         return false;
       }
+      return true;
     }
 
     async function remove(tabla, id) {
-      try {
-        const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}?id=eq.${id}`, {
-          method: 'DELETE',
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return true;
-      } catch (e) {
-        console.error('Remove error:', e);
-        alert('Error al eliminar');
+      const res = await Api.delete(tabla, `?id=eq.${id}`);
+      if (!res.success) {
+        alert('Error al eliminar: ' + res.error);
         return false;
       }
+      return true;
     }
 
     function getCookie(name) {
@@ -133,24 +100,43 @@
     }
 
     // Verificar sesión y terminal registrada
-    const usuarioSession = getSesion();
-    if (!usuarioSession) {
-      window.location.href = 'login.html';
-    } else {
-      // Asegurar que existe device_id y verificar registro
-      const deviceId = getDeviceId();
-      fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${usuarioSession.licencia_id}&select=id`, {
-        headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-      }).then(res => res.json()).then(data => {
-        if (!data || data.length === 0) {
-          document.cookie = 'sesion=;path=/;max-age=0';
+    async function checkAccess() {
+      const usuarioSession = CookieManager.getSesion();
+      if (!usuarioSession) {
+        window.location.href = 'login.html';
+        return null;
+      }
+
+      const deviceId = CookieManager.getDeviceId();
+      try {
+        const res = await Api.get('dispositivos', `?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${usuarioSession.licencia_id}&select=id`);
+        if (!res.success || res.data.length === 0) {
+          CookieManager.clearSesion();
           alert('Esta terminal no está activada para esta cuenta. Primero activá la terminal desde login.');
           window.location.href = 'login.html';
+          return null;
         }
-      }).catch(() => {
-        // Si hay error de conexión, permitir acceso
-      });
+      } catch (e) {
+        console.error('Error verificando dispositivo, permitiendo acceso:', e);
+      }
+      return usuarioSession;
     }
+
+    async function init() {
+      const session = await checkAccess();
+      if (session) {
+        // Iniciar timeout de sesión
+        SessionManager.init(() => {
+          alert('Sesión expirada por inactividad');
+          CookieManager.clearSesion();
+          window.location.href = 'login.html';
+        });
+        
+        createRoot(document.getElementById('root')).render(h(App, null));
+      }
+    }
+
+    init();
 
     /* HEADER */
     function Header({ user, onLogout }) {
@@ -571,10 +557,10 @@
         });
       };
 
-      const handleLogout = () => {
-        document.cookie = 'sesion=;path=/;max-age=0';
-        window.location.href = 'login.html';
-      };
+    const handleLogout = () => {
+      CookieManager.clearSesion();
+      window.location.href = 'login.html';
+    };
 
       const handleResetPassword = (u) => {
         setResetPassword(u);
@@ -653,8 +639,6 @@
         h(renderResetModal)
       );
     }
-
-    createRoot(document.getElementById('root')).render(h(App, null));
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
