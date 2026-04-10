@@ -116,9 +116,9 @@
             const admin = perfiles.find(p => p.licencia_id === lic.id);
             return { ...lic, password: admin?.password || '' };
           });
-          setLicencias(withPasswords);
-        } catch (e) { console.error(e); }
-        setLoading(false);
+          setLicencias(withPasswords); 
+        } catch (e) { console.error(e); } 
+        setLoading(false); 
       };
 
       useEffect(() => { cargar(); }, []);

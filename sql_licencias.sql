@@ -72,7 +72,7 @@ create policy "anon_insert_perfiles" on perfiles for insert with check (true);
 create policy "anon_update_perfiles" on perfiles for update using (true) with check (true);
 
 -- Usuario admin inicial
-insert into usuarios_admin (email, password, nombre)
+insert into usuarios_admin (email, password, nombre) 
 values ('admin@conteo.com', 'admin123', 'Administrador')
 on conflict (email) do nothing;
 
