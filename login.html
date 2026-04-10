@@ -4,6 +4,9 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <meta name="theme-color" content="#3B82F6"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <link rel="manifest" href="manifest.json"/>
@@ -21,6 +24,7 @@
 <body>
   <div id="root"></div>
   <script type="module">
+    const VERSION = 'v=2';
     import { createElement as h, useState, useEffect, useRef } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
     import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
 
@@ -385,8 +389,19 @@
 
           const usuario = data[0];
           
-          // 2. Verificar contraseña (texto plano)
-          if (usuario.password !== password) {
+          // Verificar que el usuario tenga password
+          if (!usuario.password) {
+            console.error('Usuario sin password:', usuario);
+            setError('Error: usuario sin contraseña. Contactá al administrador.');
+            setLoading(false);
+            return;
+          }
+          
+          // 2. Verificar contraseña (texto plano, sin espacios)
+          const passwordIngresada = password.trim();
+          const passwordAlmacenada = (usuario.password || '').trim();
+          
+          if (passwordAlmacenada !== passwordIngresada) {
             recordAttempt(email, false);
             setError('Email o contraseña incorrectos');
             setLoading(false);
