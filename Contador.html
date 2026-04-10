@@ -44,16 +44,19 @@
         request.onsuccess = () => { offlineDb = request.result; resolve(offlineDb); };
         request.onupgradeneeded = (event) => {
           const database = event.target.result;
-           if (!database.objectStoreNames.contains('sesion')) database.createObjectStore('sesion', { keyPath: 'id' });
-           if (!database.objectStoreNames.contains('inventarios')) database.createObjectStore('inventarios', { keyPath: 'id' });
-           if (!database.objectStoreNames.contains('zonas')) database.createObjectStore('zonas', { keyPath: 'id' });
-           if (!database.objectStoreNames.contains('productos')) database.createObjectStore('productos', { keyPath: 'id' });
-           if (!database.objectStoreNames.contains('conteo_producto')) database.createObjectStore('conteo_producto', { keyPath: 'id', autoIncrement: true });
-           if (!database.objectStoreNames.contains('queue')) {
-
+          if (!database.objectStoreNames.contains('sesion')) database.createObjectStore('sesion', { keyPath: 'id' });
+          if (!database.objectStoreNames.contains('inventarios')) database.createObjectStore('inventarios', { keyPath: 'id' });
+          if (!database.objectStoreNames.contains('zonas')) database.createObjectStore('zonas', { keyPath: 'id' });
+          if (!database.objectStoreNames.contains('productos')) database.createObjectStore('productos', { keyPath: 'id' });
+          if (!database.objectStoreNames.contains('conteo_producto')) database.createObjectStore('conteo_producto', { keyPath: 'id', autoIncrement: true });
+          if (!database.objectStoreNames.contains('queue')) {
             const queueStore = database.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
             queueStore.createIndex('timestamp', 'timestamp');
           }
+          if (!database.objectStoreNames.contains('metadata')) database.createObjectStore('metadata', { keyPath: 'key' });
+        };
+      }
+
           if (!database.objectStoreNames.contains('metadata')) database.createObjectStore('metadata', { keyPath: 'key' });
         };
         resolve(request.result);
@@ -144,7 +147,12 @@
 
     function getSesion() {
       const sesion = getCookie('sesion');
-      return sesion ? JSON.parse(sesion) : null;
+      try {
+        return sesion ? JSON.parse(decodeURIComponent(sesion)) : null;
+      } catch (e) {
+        console.error('Error parseando sesión:', e);
+        return null;
+      }
     }
 
     function clearSesion() {

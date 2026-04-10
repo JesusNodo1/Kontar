@@ -246,13 +246,18 @@ self.addEventListener('fetch', event => {
   }
   
 // Solo cachear archivos locales del mismo dominio
-  if (url.origin === location.origin) {
-    event.respondWith(
-      caches.match(event.request)
-        .then(response => response || fetch(event.request))
-    );
-    return;
-  }
+    if (url.origin === location.origin) {
+      event.respondWith(
+        caches.match(event.request)
+          .then(response => response || fetch(event.request))
+          .catch(err => {
+            console.error('Fetch failed in SW:', err);
+            return new Response('Offline: asset not cached', { status: 503 });
+          })
+      );
+      return;
+    }
+
 });
 
 async function handleApiRequest(request) {
