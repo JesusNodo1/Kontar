@@ -24,6 +24,7 @@
     import { createElement as h, useState, useRef, useCallback, useEffect, Fragment } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
     import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
     import { SessionManager } from './api.js';
+    import { SessionManager } from './api.js';
 
     const B = '#3B82F6', BD = '#2563EB', BL = '#EFF6FF', G = '#10B981', GD = '#059669', GL = '#F0FDF4', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F2', Y = '#F59E0B', YL = '#FFFBEB';
 
@@ -31,7 +32,7 @@
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpldXBuZnh6YXdncnRkZG5odmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODY5NTgsImV4cCI6MjA5MTA2Mjk1OH0.qmABLeL-3iJ3f6l7GdDnEshweuUtSM5YRSTSzby9N0g';
 
     const DB_NAME = 'ConteoOfflineDB';
-    const DB_VERSION = 2;
+    const DB_VERSION = 1;
     let offlineDb = null;
     let isOnline = navigator.onLine;
     let pendingSyncCount = 0;
@@ -44,21 +45,21 @@
         request.onsuccess = () => { offlineDb = request.result; resolve(offlineDb); };
         request.onupgradeneeded = (event) => {
           const database = event.target.result;
-          if (!database.objectStoreNames.contains('sesion')) database.createObjectStore('sesion', { keyPath: 'id' });
-          if (!database.objectStoreNames.contains('licencias')) database.createObjectStore('licencias', { keyPath: 'id' });
-          if (!database.objectStoreNames.contains('inventarios')) database.createObjectStore('inventarios', { keyPath: 'id' });
-          if (!database.objectStoreNames.contains('zonas')) database.createObjectStore('zonas', { keyPath: 'id' });
-          if (!database.objectStoreNames.contains('productos')) database.createObjectStore('productos', { keyPath: 'id' });
-          if (!database.objectStoreNames.contains('conteo_producto')) database.createObjectStore('conteo_producto', { keyPath: 'id', autoIncrement: true });
-          if (!database.objectStoreNames.contains('queue')) {
+           if (!database.objectStoreNames.contains('sesion')) database.createObjectStore('sesion', { keyPath: 'id' });
+           if (!database.objectStoreNames.contains('inventarios')) database.createObjectStore('inventarios', { keyPath: 'id' });
+           if (!database.objectStoreNames.contains('zonas')) database.createObjectStore('zonas', { keyPath: 'id' });
+           if (!database.objectStoreNames.contains('productos')) database.createObjectStore('productos', { keyPath: 'id' });
+           if (!database.objectStoreNames.contains('conteo_producto')) database.createObjectStore('conteo_producto', { keyPath: 'id', autoIncrement: true });
+           if (!database.objectStoreNames.contains('queue')) {
+
             const queueStore = database.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
             queueStore.createIndex('timestamp', 'timestamp');
           }
           if (!database.objectStoreNames.contains('metadata')) database.createObjectStore('metadata', { keyPath: 'key' });
         };
+        resolve(request.result);
       });
     }
-
 
     async function dbGetOffline(storeName, key) {
       const database = await openOfflineDB();
@@ -85,19 +86,11 @@
     async function dbPutOffline(storeName, data) {
       const database = await openOfflineDB();
       return new Promise((resolve, reject) => {
-        try {
-          if (!database.objectStoreNames.contains(storeName)) {
-            reject(new Error(`Store ${storeName} not found`));
-            return;
-          }
-          const tx = database.transaction(storeName, 'readwrite');
-          const store = tx.objectStore(storeName);
-          const request = store.put(data);
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        } catch (e) {
-          reject(e);
-        }
+        const tx = database.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const request = store.put(data);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
       });
     }
 
@@ -152,12 +145,7 @@
 
     function getSesion() {
       const sesion = getCookie('sesion');
-      try {
-        return sesion ? JSON.parse(decodeURIComponent(sesion)) : null;
-      } catch (e) {
-        console.error('Error parseando sesión:', e);
-        return null;
-      }
+      return sesion ? JSON.parse(sesion) : null;
     }
 
     function clearSesion() {
@@ -337,7 +325,7 @@
     }
 
     async function verificarLicencia(licenciaId) {
-      const data = await apiGet('licencias', `?id=eq.${licenciaId}&activa=eq.true&select=id`);
+      const data = await apiGet(`licencias?id=eq.${licenciaId}&activa=eq.true&select=id`);
       return data && data.length > 0;
     }
 
@@ -703,9 +691,8 @@
         const cargarConteos = async () => {
           if (!zona?.id) return;
           setLoadingConteos(true);
-        try {
-          const conteosRaw = await apiGet('conteo_producto', `?zona_id=eq.${zona.id}&select=*,producto:productos(*)`);
-
+          try {
+            const conteosRaw = await apiGet(`conteo_producto?zona_id=eq.${zona.id}&select=*,producto:productos(*)`);
             
             const conteosFormateados = (conteosRaw || []).map(c => ({
               id: c.producto_id,

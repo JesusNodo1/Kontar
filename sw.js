@@ -15,7 +15,7 @@ const STATIC_ASSETS = [
 ];
 
 const DB_NAME = 'ConteoOfflineDB';
-const DB_VERSION = 2;
+const DB_VERSION = 1;
 
 let db = null;
 
@@ -31,16 +31,12 @@ function openDB() {
     request.onupgradeneeded = (event) => {
       const database = event.target.result;
       
-       if (!database.objectStoreNames.contains('sesion')) {
-         database.createObjectStore('sesion', { keyPath: 'id' });
-       }
-       if (!database.objectStoreNames.contains('licencias')) {
-         database.createObjectStore('licencias', { keyPath: 'id' });
-       }
-       if (!database.objectStoreNames.contains('inventarios')) {
-         database.createObjectStore('inventarios', { keyPath: 'id' });
-       }
-
+      if (!database.objectStoreNames.contains('sesion')) {
+        database.createObjectStore('sesion', { keyPath: 'id' });
+      }
+      if (!database.objectStoreNames.contains('inventarios')) {
+        database.createObjectStore('inventarios', { keyPath: 'id' });
+      }
       if (!database.objectStoreNames.contains('zonas')) {
         database.createObjectStore('zonas', { keyPath: 'id' });
       }
@@ -239,28 +235,25 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   
-  // 1. Interceptar peticiones a la API de Supabase primero, independientemente del origen
+  // IMPORTANTE: Si es otro dominio (Supabase, CDN, Google Fonts), NO pasar por el SW
+  if (url.origin !== location.origin) {
+    return; // El navegador maneja el request directamente, sin caché
+  }
+  
   if (url.pathname.includes('/rest/v1/')) {
     event.respondWith(handleApiRequest(event.request));
     return;
   }
-
-  // 2. Para todo lo demás, si es otro dominio, dejar que el navegador lo maneje
-  if (url.origin !== location.origin) {
-    return; 
-  }
   
-  // 3. Solo cachear archivos locales del mismo dominio
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => response || fetch(event.request))
-      .catch(err => {
-        console.error('Fetch failed in SW:', err);
-        return new Response('Offline: asset not cached', { status: 503 });
-      })
-  );
+// Solo cachear archivos locales del mismo dominio
+  if (url.origin === location.origin) {
+    event.respondWith(
+      caches.match(event.request)
+        .then(response => response || fetch(event.request))
+    );
+    return;
+  }
 });
-
 
 async function handleApiRequest(request) {
   const url = new URL(request.url);

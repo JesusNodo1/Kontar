@@ -1,157 +1,66 @@
--- =============================================================================
--- SISTEMA DE CONTEO DE INVENTARIO - ESQUEMA COMPLETO DE BASE DE DATOS
--- =============================================================================
+-- ============================================
+-- ACTUALIZAR SEGÚN TU ESTRUCTURA EXISTENTE
+-- ============================================
 
--- 1. TABLAS MAESTRAS
+-- 1. Agregar licencia_id a inventarios (ya lo agregaste)
+-- 2. Agregar licencia_id a productos (ya lo agregaste)
+-- 3. Agregar licencia_id a zonas (ya lo agregaste)
+-- 4. Agregar licencia_id a conteo_producto (ya lo agregaste)
 
--- Licencias: Gestiona el acceso multi-tenant
-CREATE TABLE IF NOT EXISTS licencias (
-    id SERIAL PRIMARY KEY,
-    codigo TEXT UNIQUE NOT NULL,
-    nombre_empresa TEXT NOT NULL,
-    email TEXT NOT NULL,
-    telefono TEXT,
-    limite_dispositivos INT DEFAULT 1,
-    activa BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Tabla licencias (nueva)
+create table if not exists licencias (
+    id serial primary key,
+    codigo text unique not null,
+    nombre_empresa text not null,
+    email text not null,
+    telefono text,
+    limite_dispositivos int default 1,
+    activa boolean default true,
+    created_at timestamp with time zone default now()
 );
 
--- Usuarios del Panel de Vendedor (Administradores del Sistema)
-CREATE TABLE IF NOT EXISTS usuarios_admin (
-    id SERIAL PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    nombre TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Tabla usuarios_admin (panel del vendedor - NOSOTROS)
+create table if not exists usuarios_admin (
+    id serial primary key,
+    email text unique not null,
+    password text not null,
+    nombre text not null,
+    created_at timestamp with time zone default now()
 );
 
--- Usuarios de la aplicación (Clientes)
-CREATE TABLE IF NOT EXISTS perfiles (
-    id SERIAL PRIMARY KEY,
-    licencia_id INT REFERENCES licencias(id),
-    nombre TEXT NOT NULL,
-    email TEXT NOT NULL,
-    password TEXT NOT NULL,
-    rol TEXT NOT NULL CHECK (rol IN ('administrador', 'contador')),
-    estado TEXT DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(email, licencia_id)
+-- Tabla dispositivos (terminales registradas)
+create table if not exists dispositivos (
+    id serial primary key,
+    licencia_id int references licencias(id),
+    dispositivo_id text not null,
+    nombre_dispositivo text,
+    registered_at timestamp with time zone default now()
 );
 
--- Terminales registradas vinculadas a una licencia
-CREATE TABLE IF NOT EXISTS dispositivos (
-    id SERIAL PRIMARY KEY,
-    licencia_id INT REFERENCES licencias(id),
-    dispositivo_id TEXT NOT NULL,
-    nombre_dispositivo TEXT,
-    registered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(dispositivo_id, licencia_id)
-);
+-- Agregar columnas faltantes a perfiles si no existen
+alter table perfiles add column if not exists password text;
+alter table perfiles add column if not exists licencia_id int;
+alter table perfiles add column if not exists estado text default 'ACTIVO';
 
--- 2. TABLAS DE OPERACIÓN
+-- Policies
+drop policy if exists "Public_licencias" on licencias;
+create policy "Public_licencias" on licencias for all using (true) with check (true);
 
--- Inventarios: Sesiones de conteo globales
-CREATE TABLE IF NOT EXISTS inventarios (
-    id SERIAL PRIMARY KEY,
-    licencia_id INT REFERENCES licencias(id),
-    nombre TEXT NOT NULL,
-    sucursal TEXT NOT NULL,
-    deposito TEXT,
-    fecha_inicio DATE NOT NULL,
-    fecha_limite DATE NOT NULL,
-    estado TEXT DEFAULT 'abierto' CHECK (estado IN ('abierto', 'finalizado')),
-    total_productos INT DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+drop policy if exists "Public_dispositivos" on dispositivos;
+create policy "Public_dispositivos" on dispositivos for all using (true) with check (true);
 
--- Zonas: Divisiones físicas dentro de un inventario
-CREATE TABLE IF NOT EXISTS zonas (
-    id SERIAL PRIMARY KEY,
-    inventario_id INT REFERENCES inventarios(id),
-    nombre TEXT NOT NULL,
-    descripcion TEXT,
-    finalizada BOOLEAN DEFAULT FALSE,
-    total_productos INT DEFAULT 0,
-    productos_contados INT DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+drop policy if exists "Public_usuarios_admin" on usuarios_admin;
+create policy "Public_usuarios_admin" on usuarios_admin for all using (true) with check (true);
 
--- Productos: Catálogo de productos por licencia
-CREATE TABLE IF NOT EXISTS productos (
-    id SERIAL PRIMARY KEY,
-    licencia_id INT REFERENCES licencias(id),
-    sku TEXT,
-    nombre TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Usuario admin inicial
+insert into usuarios_admin (email, password, nombre) 
+values ('admin@conteo.com', 'admin123', 'Administrador')
+on conflict (email) do nothing;
 
--- Conteos: Registros individuales de conteo por producto y zona
-CREATE TABLE IF NOT EXISTS conteo_producto (
-    id SERIAL PRIMARY KEY,
-    zona_id INT REFERENCES zonas(id),
-    producto_id INT REFERENCES productos(id),
-    cantidad INT NOT NULL DEFAULT 0,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Crear una licencia de ejemplo
+insert into licencias (codigo, nombre_empresa, email, telefono, limite_dispositivos, activa)
+values ('CNT-DEMO-TEST', 'Empresa Demo', 'demo@empresa.com', '+54 11 1234 5678', 5, true);
 
--- 3. ÍNDICES PARA OPTIMIZACIÓN
-CREATE INDEX IF NOT EXISTS idx_perfiles_licencia ON perfiles(licencia_id);
-CREATE INDEX IF NOT EXISTS idx_dispositivos_id ON dispositivos(dispositivo_id);
-CREATE INDEX IF NOT EXISTS idx_inventarios_licencia ON inventarios(licencia_id);
-CREATE INDEX IF NOT EXISTS idx_zonas_inv ON zonas(inventario_id);
-CREATE INDEX IF NOT EXISTS idx_productos_licencia ON productos(licencia_id);
-CREATE INDEX IF NOT EXISTS idx_conteo_zona ON conteo_producto(zona_id);
-
--- 4. SEGURIDAD (RLS - Row Level Security)
--- Habilitar RLS en todas las tablas
-ALTER TABLE licencias ENABLE ROW LEVEL SECURITY;
-ALTER TABLE usuarios_admin ENABLE ROW LEVEL SECURITY;
-ALTER TABLE perfiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE dispositivos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE inventarios ENABLE ROW LEVEL SECURITY;
-ALTER TABLE zonas ENABLE ROW LEVEL SECURITY;
-ALTER TABLE productos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE conteo_producto ENABLE ROW LEVEL SECURITY;
-
--- Políticas Públicas (Ajustar según necesidad de seguridad real)
-DROP POLICY IF EXISTS "Public_licencias" ON licencias;
-CREATE POLICY "Public_licencias" ON licencias FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public_usuarios_admin" ON usuarios_admin;
-CREATE POLICY "Public_usuarios_admin" ON usuarios_admin FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public_perfiles" ON perfiles;
-CREATE POLICY "Public_perfiles" ON perfiles FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public_dispositivos" ON dispositivos;
-CREATE POLICY "Public_dispositivos" ON dispositivos FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public_inventarios" ON inventarios;
-CREATE POLICY "Public_inventarios" ON inventarios FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public_zonas" ON zonas;
-CREATE POLICY "Public_zonas" ON zonas FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public_productos" ON productos;
-CREATE POLICY "Public_productos" ON productos FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public_conteo_producto" ON conteo_producto;
-CREATE POLICY "Public_conteo_producto" ON conteo_producto FOR ALL USING (true) WITH CHECK (true);
-
--- 5. DATOS INICIALES DE PRUEBA
-
--- Administrador del sistema (Vendedor)
-INSERT INTO usuarios_admin (email, password, nombre) 
-VALUES ('admin@conteo.com', 'admin123', 'Administrador')
-ON CONFLICT (email) DO NOTHING;
-
--- Licencia Demo
-INSERT INTO licencias (codigo, nombre_empresa, email, telefono, limite_dispositivos, activa)
-VALUES ('CNT-DEMO-TEST', 'Empresa Demo', 'demo@empresa.com', '+54 11 1234 5678', 5, true)
-ON CONFLICT DO NOTHING;
-
--- Usuario Demo (Admin de la empresa cliente)
--- Nota: Se asume que la licencia demo tiene ID 1
-INSERT INTO perfiles (nombre, email, password, rol, licencia_id, estado)
-VALUES ('Demo Admin', 'demo@empresa.com', '12345', 'administrador', 1, 'ACTIVO')
-ON CONFLICT DO NOTHING;
+-- Crear usuario demo en perfiles (password texto plano: "12345")
+insert into perfiles (nombre, email, password, rol, licencia_id, estado)
+values ('Demo Admin', 'demo@empresa.com', '12345', 'administrador', 1, 'ACTIVO');

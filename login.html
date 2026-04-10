@@ -75,6 +75,32 @@
     function guardarSesion(usuario) { CookieManager.guardarSesion(usuario); }
     function validarEmail(email) { return Utils.validarEmail(email); }
     function validarCodigo(codigo) { return Utils.validarCodigoLicencia(codigo); }
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? match[2] : null;
+    }
+
+    function setCookie(name, value, days = 365) {
+      const secure = location.protocol === 'https:' ? ';Secure' : '';
+      document.cookie = `${name}=${value};path=/;max-age=${days * 24 * 60 * 60};SameSite=Strict${secure}`;
+    }
+
+    function getDeviceId() {
+      let id = getCookie('device_id');
+      if (!id) {
+        id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        setCookie('device_id', id);
+      }
+      return id;
+    }
+
+    function getSesion() {
+      const sesion = getCookie('sesion');
+      return sesion ? JSON.parse(sesion) : null;
+    }
+
+    function guardarSesion(usuario) {
+      setCookie('sesion', JSON.stringify(usuario), 30);
+    }
 
     /* PANTALLA DE REGISTRO - Solo para la primera vez */
     function RegistroScreen({ onBack }) {
@@ -116,18 +142,47 @@
             return;
           }
 
-           // Verificar dispositivo existente
-           const devRes = await Api.get('dispositivos', `?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`);
-           const dispositivoExistente = devRes.data;
+          // Verificar dispositivo existente
+          const devRes = await Api.get('dispositivos', `?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`);
+          const dispositivoExistente = devRes.data;
 
-           if (dispositivoExistente && dispositivoExistente.length > 0) {
-             setError('Esta terminal ya está registrada con esta licencia. Usá "Iniciar Sesión" con tu email y contraseña.');
-             setLoading(false);
-             return;
-           }
+          if (dispositivoExistente && dispositivoExistente.length > 0) {
+            setError('Esta terminal ya está registrada con esta licencia. Usá "Iniciar Sesión" con tu email y contraseña.');
+            setLoading(false);
+            return;
+          }
+          
+          const licencias = await res.json();
 
-           // Verificar usuario
+          if (!licencias || !Array.isArray(licencias) || licencias.length === 0) {
+            setError('Código de licencia inválido');
+            setLoading(false);
+            return;
+          }
 
+          const licencia = licencias[0];
+          
+          if (!licencia || !licencia.id) {
+            setError('Error al leer la licencia');
+            setLoading(false);
+            return;
+          }
+          
+          if (!licencia.activa) {
+            setError('La licencia está inactiva');
+            setLoading(false);
+            return;
+          }
+
+          // Verificar dispositivo existente
+          const devRes = await Api.get('dispositivos', `?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`);
+          const dispositivoExistente = devRes.data;
+
+          if (dispositivoExistente && dispositivoExistente.length > 0) {
+            setError('Esta terminal ya está registrada con esta licencia. Usá "Iniciar Sesión" con tu email y contraseña.');
+            setLoading(false);
+            return;
+          }
 
           // Verificar usuario
           const userRes = await Api.get('perfiles', `?email=eq.${encodeURIComponent(email)}&licencia_id=eq.${licencia.id}&select=id,nombre,email,rol,estado,licencia_id`);
@@ -164,7 +219,23 @@
             usuario = nuevo;
             setCookie('temp_password', passwordPlano, 7);
           }
-
+            
+            if (!createRes.ok) {
+              const errText = await createRes.text();
+              console.error('Error creando usuario:', createRes.status, errText);
+              throw new Error('No se pudo crear el usuario');
+            }
+            
+            const nuevo = await createRes.json();
+            if (!nuevo || nuevo.length === 0) {
+              setError('Error al crear usuario');
+              setLoading(false);
+              return;
+            }
+            usuario = nuevo[0];
+            // Guardar password plana para mostrar al usuario
+            setCookie('temp_password', passwordPlano, 7);
+          }
 
             // Registrar dispositivo
             const regDevRes = await Api.post('dispositivos', {

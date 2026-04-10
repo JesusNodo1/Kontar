@@ -303,7 +303,7 @@
             )
           )
         ),
-        showModal && d('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+        showModal && d('div', { onClick: e => { if (e.target === e.currentTarget) setShowModal(false) }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
           d('div', { style: { background: '#fff', width: '100%', maxWidth: 480, borderRadius: 16 } },
             d('div', { style: { padding: '20px 24px', borderBottom: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
               d('h2', { style: { fontSize: 18, fontWeight: 600 } }, editando ? 'Editar Usuario' : 'Nuevo Usuario'),
@@ -405,7 +405,7 @@
             )
           )
         ),
-        showModal && d('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+        showModal && d('div', { onClick: e => { if (e.target === e.currentTarget) setShowModal(false) }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
           d('div', { style: { background: '#fff', width: '100%', maxWidth: 480, borderRadius: 16 } },
             d('div', { style: { padding: '20px 24px', borderBottom: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
               d('h2', { style: { fontSize: 18, fontWeight: 600 } }, editando ? 'Editar Producto' : 'Nuevo Producto'),
@@ -493,7 +493,7 @@
                 )
               ))
         ),
-        showModal && d('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+        showModal && d('div', { onClick: e => { if (e.target === e.currentTarget) setShowModal(false) }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
           d('div', { style: { background: '#fff', width: '100%', maxWidth: 520, borderRadius: 16 } },
             d('div', { style: { padding: '20px 24px', borderBottom: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
               d('h2', { style: { fontSize: 18, fontWeight: 600 } }, 'Nuevo Inventario'),
@@ -530,7 +530,6 @@
 
     /* APP */
     function App() {
-      const usuarioSession = CookieManager.getSesion();
       const [tab, setTab] = useState('dashboard');
       const [licenciaId, setLicenciaId] = useState(null);
       const [stats, setStats] = useState({ inventariosActivos: 0, totalProductos: 0, zonasTotales: 0, usuariosActivos: 0, inventarios: [] });
@@ -587,7 +586,7 @@
 
       const renderResetModal = () => {
         if (!showResetModal || !resetPassword) return null;
-        return d('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+        return d('div', { onClick: e => { if (e.target === e.currentTarget) { setShowResetModal(false); setResetPassword(null); } }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
           d('div', { style: { background: '#fff', width: '100%', maxWidth: 400, borderRadius: 16, overflow: 'hidden' } },
             d('div', { style: { background: Y, padding: 20, display: 'flex', alignItems: 'center', gap: 12 } },
               h(IconReset),
