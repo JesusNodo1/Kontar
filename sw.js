@@ -1,7 +1,7 @@
-const CACHE_NAME = 'conteo-v3';
+const CACHE_NAME = 'conteo-v4';
 const DATA_CACHE = 'conteo-data-v2';
 const API_QUEUE = 'conteo-queue-v2';
-const VERSION = 'v=3';
+const VERSION = 'v=4';
 
 const STATIC_ASSETS = [
   '/Contador.html',
@@ -234,50 +234,21 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   
+  // IMPORTANTE: Si es otro dominio (Supabase, CDN, Google Fonts), NO pasar por el SW
+  if (url.origin !== location.origin) {
+    return; // El navegador maneja el request directamente, sin caché
+  }
+  
   if (url.pathname.includes('/rest/v1/')) {
     event.respondWith(handleApiRequest(event.request));
     return;
   }
   
+// Solo cachear archivos locales del mismo dominio
   if (url.origin === location.origin) {
     event.respondWith(
       caches.match(event.request)
-        .then(response => {
-          if (response) return response;
-          
-          return fetch(event.request)
-            .then(networkResponse => {
-              if (networkResponse.ok && event.request.method === 'GET') {
-                const responseToCache = networkResponse.clone();
-                caches.open(CACHE_NAME).then(cache => {
-                  cache.put(event.request, responseToCache);
-                });
-              }
-              return networkResponse;
-            })
-            .catch(() => {
-              if (event.request.destination === 'document') {
-                return caches.match('/Contador.html');
-              }
-            });
-        })
-    );
-    return;
-  }
-  
-  if (url.origin.includes('fonts.googleapis.com') || url.origin.includes('fonts.gstatic.com')) {
-    event.respondWith(
-      caches.match(event.request)
-        .then(response => {
-          if (response) return response;
-          
-          return fetch(event.request)
-            .then(networkResponse => {
-              const responseToCache = networkResponse.clone();
-              caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseToCache));
-              return networkResponse;
-            });
-        })
+        .then(response => response || fetch(event.request))
     );
     return;
   }
