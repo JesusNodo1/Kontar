@@ -530,6 +530,7 @@
 
     /* APP */
     function App() {
+      const usuarioSession = CookieManager.getSesion();
       const [tab, setTab] = useState('dashboard');
       const [licenciaId, setLicenciaId] = useState(null);
       const [stats, setStats] = useState({ inventariosActivos: 0, totalProductos: 0, zonasTotales: 0, usuariosActivos: 0, inventarios: [] });
