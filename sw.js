@@ -1,6 +1,7 @@
-const CACHE_NAME = 'conteo-v2';
-const DATA_CACHE = 'conteo-data-v1';
-const API_QUEUE = 'conteo-queue-v1';
+const CACHE_NAME = 'conteo-v3';
+const DATA_CACHE = 'conteo-data-v2';
+const API_QUEUE = 'conteo-queue-v2';
+const VERSION = 'v=3';
 
 const STATIC_ASSETS = [
   '/Contador.html',
@@ -220,7 +221,7 @@ self.addEventListener('activate', event => {
       caches.keys().then(cacheNames => {
         return Promise.all(
           cacheNames
-            .filter(name => name !== CACHE_NAME && name !== DATA_CACHE)
+            .filter(name => name.startsWith('conteo-'))
             .map(name => caches.delete(name))
         );
       }),
