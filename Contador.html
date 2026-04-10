@@ -31,7 +31,7 @@
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpldXBuZnh6YXdncnRkZG5odmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODY5NTgsImV4cCI6MjA5MTA2Mjk1OH0.qmABLeL-3iJ3f6l7GdDnEshweuUtSM5YRSTSzby9N0g';
 
     const DB_NAME = 'ConteoOfflineDB';
-    const DB_VERSION = 1;
+    const DB_VERSION = 2;
     let offlineDb = null;
     let isOnline = navigator.onLine;
     let pendingSyncCount = 0;
@@ -45,6 +45,7 @@
         request.onupgradeneeded = (event) => {
           const database = event.target.result;
           if (!database.objectStoreNames.contains('sesion')) database.createObjectStore('sesion', { keyPath: 'id' });
+          if (!database.objectStoreNames.contains('licencias')) database.createObjectStore('licencias', { keyPath: 'id' });
           if (!database.objectStoreNames.contains('inventarios')) database.createObjectStore('inventarios', { keyPath: 'id' });
           if (!database.objectStoreNames.contains('zonas')) database.createObjectStore('zonas', { keyPath: 'id' });
           if (!database.objectStoreNames.contains('productos')) database.createObjectStore('productos', { keyPath: 'id' });

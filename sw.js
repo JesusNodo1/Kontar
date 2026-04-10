@@ -15,7 +15,7 @@ const STATIC_ASSETS = [
 ];
 
 const DB_NAME = 'ConteoOfflineDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let db = null;
 
@@ -31,12 +31,16 @@ function openDB() {
     request.onupgradeneeded = (event) => {
       const database = event.target.result;
       
-      if (!database.objectStoreNames.contains('sesion')) {
-        database.createObjectStore('sesion', { keyPath: 'id' });
-      }
-      if (!database.objectStoreNames.contains('inventarios')) {
-        database.createObjectStore('inventarios', { keyPath: 'id' });
-      }
+       if (!database.objectStoreNames.contains('sesion')) {
+         database.createObjectStore('sesion', { keyPath: 'id' });
+       }
+       if (!database.objectStoreNames.contains('licencias')) {
+         database.createObjectStore('licencias', { keyPath: 'id' });
+       }
+       if (!database.objectStoreNames.contains('inventarios')) {
+         database.createObjectStore('inventarios', { keyPath: 'id' });
+       }
+
       if (!database.objectStoreNames.contains('zonas')) {
         database.createObjectStore('zonas', { keyPath: 'id' });
       }
