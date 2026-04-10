@@ -23,8 +23,6 @@
   <script type="module">
     import { createElement as h, useState, useRef, useCallback, useEffect, Fragment } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
     import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
-    import { SessionManager } from './api.js';
-    import { SessionManager } from './api.js';
 
     const B = '#3B82F6', BD = '#2563EB', BL = '#EFF6FF', G = '#10B981', GD = '#059669', GL = '#F0FDF4', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F2', Y = '#F59E0B', YL = '#FFFBEB';
 
@@ -45,13 +43,12 @@
         request.onsuccess = () => { offlineDb = request.result; resolve(offlineDb); };
         request.onupgradeneeded = (event) => {
           const database = event.target.result;
-           if (!database.objectStoreNames.contains('sesion')) database.createObjectStore('sesion', { keyPath: 'id' });
-           if (!database.objectStoreNames.contains('inventarios')) database.createObjectStore('inventarios', { keyPath: 'id' });
-           if (!database.objectStoreNames.contains('zonas')) database.createObjectStore('zonas', { keyPath: 'id' });
-           if (!database.objectStoreNames.contains('productos')) database.createObjectStore('productos', { keyPath: 'id' });
-           if (!database.objectStoreNames.contains('conteo_producto')) database.createObjectStore('conteo_producto', { keyPath: 'id', autoIncrement: true });
-           if (!database.objectStoreNames.contains('queue')) {
-
+          if (!database.objectStoreNames.contains('sesion')) database.createObjectStore('sesion', { keyPath: 'id' });
+          if (!database.objectStoreNames.contains('inventarios')) database.createObjectStore('inventarios', { keyPath: 'id' });
+          if (!database.objectStoreNames.contains('zonas')) database.createObjectStore('zonas', { keyPath: 'id' });
+          if (!database.objectStoreNames.contains('productos')) database.createObjectStore('productos', { keyPath: 'id' });
+          if (!database.objectStoreNames.contains('conteos')) database.createObjectStore('conteos', { keyPath: 'id', autoIncrement: true });
+          if (!database.objectStoreNames.contains('queue')) {
             const queueStore = database.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
             queueStore.createIndex('timestamp', 'timestamp');
           }
@@ -205,12 +202,11 @@
         return result;
       } catch (e) {
         console.error('API POST error, queueing for sync:', e);
-         const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-         const localItem = { ...data, id: tempId, _pendingSync: true };
-         await dbPutOffline('queue', { method: 'POST', tabla, data, timestamp: Date.now(), synced: false });
-         await dbPutOffline(tabla, localItem);
-         pendingSyncCount = await getPendingSyncCount();
-
+        const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        const localItem = { ...data, id: tempId, _pendingSync: true };
+        await dbPutOffline('queue', { method: 'POST', tabla, data, timestamp: Date.now(), synced: false });
+        await dbPutOffline(tabla === 'conteo_producto' ? 'conteos' : tabla, localItem);
+        pendingSyncCount = await getPendingSyncCount();
         notifyOfflineStatus();
         return [localItem];
       }
@@ -1082,14 +1078,6 @@
       const [todosConteos, setTodosConteos] = useState([]);
       let touchStartY = 0;
       let touchPullDistance = 0;
-
-      useEffect(() => {
-        SessionManager.init(() => {
-          alert('Sesión expirada por inactividad');
-          clearSesion();
-          window.location.href = 'login.html';
-        });
-      }, []);
 
       // Cargar inventario activo
       const cargarInventario = async () => {

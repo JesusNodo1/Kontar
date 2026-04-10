@@ -10,7 +10,6 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <link rel="manifest" href="manifest.json"/>
-  <link rel="icon" href="data:,"/>
   <title>Conteo - Login</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -25,60 +24,79 @@
 <body>
   <div id="root"></div>
   <script type="module">
-    import { createElement as h, useState, useEffect, useRef } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
+    import { createElement as h, useState, useEffect } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
     import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
-    import { Api, CookieManager, Utils } from './api.js';
 
     const B = '#3B82F6', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F4', G = '#10B981', GL = '#F0FDF4', Y = '#F59E0B', YL = '#FFFBEB';
+
     const d = (tag, props, ...kids) => h(tag, props, ...kids.flat());
     const Spinner = ({ size = 15 }) => d('div', { className: 'spin', style: { width: size, height: size } });
 
     const supabaseUrl = 'https://jeupnfxzawgrtddnhvij.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpldXBuZnh6YXdncnRkZG5odmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODY5NTgsImV4cCI6MjA5MTA2Mjk1OH0.qmABLeL-3iJ3f6l7GdDnEshweuUtSM5YRSTSzby9N0g';
 
-    // ============================================
-    // FETCH CON RETRY PARA ERRORES 503
-    // ============================================
-
-    async function fetchWithRetry(url, options = {}, retries = 3, delay = 1000) {
-      for (let attempt = 0; attempt < retries; attempt++) {
-        try {
-          const res = await fetch(url, options);
-          if (res.ok) return res;
-          if (res.status === 503 && attempt < retries - 1) {
-            console.log(`Intento ${attempt + 1}falló, reintentando en ${delay}ms...`);
-            await new Promise(r => setTimeout(r, delay));
-            delay *= 2; // Exponential backoff
-            continue;
-          }
-          return res;
-        } catch (e) {
-          if (attempt < retries - 1) {
-            console.log(`Error de conexión, reintentando...`, e.message);
-            await new Promise(r => setTimeout(r, delay));
-            delay *= 2;
-            continue;
-          }
-          throw e;
-        }
-      }
-      throw new Error('Max retries exceeded');
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? match[2] : null;
     }
 
-    // ============================================
-    // LOGIN / REGISTRO / SESIÓN (USA API.JS)
-    // ============================================
+    function setCookie(name, value, days = 365) {
+      document.cookie = `${name}=${value};path=/;max-age=${days * 24 * 60 * 60};SameSite=Lax`;
+    }
 
-    const getCookie = (name) => CookieManager.get(name);
-    const setCookie = (name, value, days) => CookieManager.set(name, value, days);
-    const getDeviceId = () => CookieManager.getDeviceId();
-    const getSesion = () => CookieManager.getSesion();
-    const guardarSesion = (usuario) => CookieManager.guardarSesion(usuario);
-    const validarEmail = (email) => Utils.validarEmail(email);
-    const validarCodigo = (codigo) => Utils.validarCodigoLicencia(codigo);
+    function getDeviceId() {
+      let id = getCookie('device_id');
+      if (!id) {
+        id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        setCookie('device_id', id);
+      }
+      return id;
+    }
+
+    function getSesion() {
+      const sesion = getCookie('sesion');
+      return sesion ? JSON.parse(sesion) : null;
+    }
+
+    function guardarSesion(usuario) {
+      setCookie('sesion', JSON.stringify(usuario), 30);
+    }
+
+    function validarEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    function validarCodigo(codigo) {
+      return /^CNT-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(codigo);
+    }
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? match[2] : null;
+    }
+
+    function setCookie(name, value, days = 365) {
+      const secure = location.protocol === 'https:' ? ';Secure' : '';
+      document.cookie = `${name}=${value};path=/;max-age=${days * 24 * 60 * 60};SameSite=Strict${secure}`;
+    }
+
+    function getDeviceId() {
+      let id = getCookie('device_id');
+      if (!id) {
+        id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        setCookie('device_id', id);
+      }
+      return id;
+    }
+
+    function getSesion() {
+      const sesion = getCookie('sesion');
+      return sesion ? JSON.parse(sesion) : null;
+    }
+
+    function guardarSesion(usuario) {
+      setCookie('sesion', JSON.stringify(usuario), 30);
+    }
 
     /* PANTALLA DE REGISTRO - Solo para la primera vez */
-
     function RegistroScreen({ onBack }) {
       const [email, setEmail] = useState('');
       const [codigo, setCodigo] = useState('');
@@ -88,6 +106,7 @@
       const handleRegistro = async (e) => {
         e?.preventDefault();
         
+        // Validaciones
         if (!email.trim()) { setError('Ingresá tu email'); return; }
         if (!validarEmail(email)) { setError('Email inválido'); return; }
         if (!codigo.trim()) { setError('Ingresá el código de licencia'); return; }
@@ -99,9 +118,10 @@
         try {
           const deviceId = getDeviceId();
 
-          // 1. Verificar licencia
-          const licRes = await Api.get('licencias', `?codigo=eq.${encodeURIComponent(codigo)}&select=*`);
-          const licencias = licRes.data;
+          const res = await fetch(`${supabaseUrl}/rest/v1/licencias?codigo=eq.${encodeURIComponent(codigo)}&select=*`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          const licencias = await res.json();
 
           if (!licencias || licencias.length === 0) {
             setError('Código de licencia inválido');
@@ -110,35 +130,98 @@
           }
 
           const licencia = licencias[0];
+          
           if (!licencia.activa) {
             setError('La licencia está inactiva');
             setLoading(false);
             return;
           }
 
-          // 2. Verificar si dispositivo ya está registrado en esta licencia
-          const devRes = await Api.get('dispositivos', `?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`);
-          if (devRes.data && devRes.data.length > 0) {
-            setError('Esta terminal ya está registrada con esta licencia. Iniciá sesión.');
+          const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          const dispositivoExistente = await devRes.json();
+
+          if (dispositivoExistente && dispositivoExistente.length > 0) {
+            setError('Esta terminal ya está registrada con esta licencia. Usá "Iniciar Sesión" con tu email y contraseña.');
             setLoading(false);
             return;
           }
 
-          // 3. Verificar usuario
-          const userRes = await Api.get('perfiles', `?email=eq.${encodeURIComponent(email)}&licencia_id=eq.${licencia.id}&select=id,nombre,email,rol,estado,licencia_id`);
-          const users = userRes.data;
+          const userRes = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&licencia_id=eq.${licencia.id}&select=id,nombre,email,rol,estado,licencia_id`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          const userExistente = await userRes.json();
+
           let usuario;
 
-          if (users && users.length > 0) {
-            if (users[0].estado === 'INACTIVO') {
+          if (userExistente && userExistente.length > 0) {
+            if (userExistente[0].estado === 'INACTIVO') {
               setError('Este usuario está desactivado. Contactá al administrador.');
               setLoading(false);
               return;
             }
-            usuario = users[0];
+            usuario = userExistente[0];
           } else {
-            // Crear nuevo usuario administrador
+            const password = Math.random().toString(36).substr(2, 8);
+
+            const createRes = await fetch(`${supabaseUrl}/rest/v1/perfiles`, {
+              method: 'POST',
+              headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+              body: JSON.stringify({
+                licencia_id: licencia.id,
+                email,
+                password,
+                nombre: email.split('@')[0],
+                rol: 'administrador',
+                estado: 'ACTIVO'
+              })
+            });
+            
+            if (!createRes.ok) {
+              const errText = await createRes.text();
+              throw new Error('No se pudo crear el usuario');
+            }
+            
+            const nuevo = await createRes.json();
+            usuario = nuevo[0];
+            setCookie('temp_password', password, 7);
+          }
+
+          const regDevRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos`, {
+            method: 'POST',
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              licencia_id: licencia.id,
+              dispositivo_id: deviceId,
+              nombre_dispositivo: navigator.userAgent.substring(0, 100)
+            })
+          });
+          
+          if (!regDevRes.ok) {
+            console.error('Error registrando dispositivo');
+          }
+
+          alert('¡Terminal activada! Ahora iniciá sesión con tu email y contraseña.');
+          window.location.href = 'login.html';
+
+        } catch (err) {
+          console.error(err);
+          setError('Error de conexión: ' + (err.message || 'Verificá que la tabla dispositivos exista'));
+        }
+        setLoading(false);
+      };
+
+          if (userExistente && userExistente.length > 0) {
+            if (userExistente[0].estado === 'INACTIVO') {
+              setError('Este usuario está desactivado. Contactá al administrador.');
+              setLoading(false);
+              return;
+            }
+            usuario = userExistente[0];
+          } else {
             const passwordPlano = Math.random().toString(36).substr(2, 8);
+
             const createRes = await Api.post('perfiles', {
               licencia_id: licencia.id,
               email: email,
@@ -153,30 +236,50 @@
               setLoading(false);
               return;
             }
-            usuario = createRes.data[0];
+            
+            const nuevo = createRes.data[0];
+            usuario = nuevo;
+            setCookie('temp_password', passwordPlano, 7);
+          }
+            
+            if (!createRes.ok) {
+              const errText = await createRes.text();
+              console.error('Error creando usuario:', createRes.status, errText);
+              throw new Error('No se pudo crear el usuario');
+            }
+            
+            const nuevo = await createRes.json();
+            if (!nuevo || nuevo.length === 0) {
+              setError('Error al crear usuario');
+              setLoading(false);
+              return;
+            }
+            usuario = nuevo[0];
+            // Guardar password plana para mostrar al usuario
             setCookie('temp_password', passwordPlano, 7);
           }
 
-          // 4. Registrar dispositivo
-          const regDevRes = await Api.post('dispositivos', {
-            licencia_id: licencia.id,
-            dispositivo_id: deviceId,
-            nombre_dispositivo: navigator.userAgent.substring(0, 100)
-          });
-          
-          if (!regDevRes.success) {
-            console.error('Error registrando dispositivo:', regDevRes.error);
+            // Registrar dispositivo
+            const regDevRes = await Api.post('dispositivos', {
+              licencia_id: licencia.id,
+              dispositivo_id: deviceId,
+              nombre_dispositivo: navigator.userAgent.substring(0, 100)
+            });
+            
+            if (!regDevRes.success) {
+              console.error('Error registrando dispositivo:', regDevRes.error);
+            }
+
+            // Redirigir a login (NO guardar sesión para forzar login manual)
+            alert('¡Terminal activada! Ahora iniciá sesión con tu email y contraseña.');
+            window.location.href = 'login.html';
+
+          } catch (err) {
+            console.error('Error:', err);
+            setError('Error de conexión: ' + (err.message || 'Verificá que la tabla dispositivos exista'));
           }
-
-          alert('¡Terminal activada! Ahora iniciá sesión con tu email y contraseña.');
-          window.location.href = 'login.html';
-
-        } catch (err) {
-          console.error('Error:', err);
-          setError('Error de conexión o base de datos.');
-        }
-        setLoading(false);
-      };
+          setLoading(false);
+        };
 
       return d('div', { style: { minHeight: '100vh', background: '#F3F4F6', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 } },
         d('div', { style: { width: '100%', maxWidth: 400 } },
@@ -295,9 +398,11 @@
         setError('');
 
         try {
-          // 1. Obtener usuario por email
-          const userRes = await Api.get('perfiles', `?email=eq.${encodeURIComponent(email)}&estado=eq.ACTIVO&select=id,nombre,email,rol,estado,licencia_id,password`);
-          const data = userRes.data;
+          // 1. Obtener usuario por email (texto plano)
+          const res = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&estado=eq.ACTIVO&select=id,nombre,email,rol,estado,licencia_id,password`, {
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          });
+          const data = await res.json();
 
           if (!data || data.length === 0) {
             recordAttempt(email, false);
@@ -309,10 +414,7 @@
           const usuario = data[0];
           
           // 2. Verificar contraseña (texto plano)
-          const passwordIngresada = password.trim();
-          const passwordAlmacenada = (usuario.password || '').trim();
-          
-          if (passwordAlmacenada !== passwordIngresada) {
+          if (usuario.password !== password) {
             recordAttempt(email, false);
             setError('Email o contraseña incorrectos');
             setLoading(false);

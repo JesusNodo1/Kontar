@@ -23,7 +23,7 @@
   <script type="module">
     import { createElement as h, useState, useEffect } from 'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm';
     import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm';
-    import { Api, CookieManager, Utils, SessionManager } from './api.js';
+    import { Api, CookieManager, Utils } from './api.js';
 
     const B = '#3B82F6', G = '#10B981', GD = '#059669', GL = '#F0FDF4', R = '#EF4444', RD = '#DC2626', RL = '#FEF2F2', Y = '#F59E0B', YL = '#FFFBEB', BL = '#EFF6FF';
     const d = (tag, props, ...kids) => h(tag, props, ...kids.flat());
@@ -100,43 +100,22 @@
     }
 
     // Verificar sesión y terminal registrada
-    async function checkAccess() {
-      const usuarioSession = CookieManager.getSesion();
-      if (!usuarioSession) {
-        window.location.href = 'login.html';
-        return null;
-      }
-
+    const usuarioSession = CookieManager.getSesion();
+    if (!usuarioSession) {
+      window.location.href = 'login.html';
+    } else {
+      // Asegurar que existe device_id y verificar registro
       const deviceId = CookieManager.getDeviceId();
-      try {
-        const res = await Api.get('dispositivos', `?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${usuarioSession.licencia_id}&select=id`);
+      Api.get('dispositivos', `?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${usuarioSession.licencia_id}&select=id`).then(res => {
         if (!res.success || res.data.length === 0) {
           CookieManager.clearSesion();
           alert('Esta terminal no está activada para esta cuenta. Primero activá la terminal desde login.');
           window.location.href = 'login.html';
-          return null;
         }
-      } catch (e) {
-        console.error('Error verificando dispositivo, permitiendo acceso:', e);
-      }
-      return usuarioSession;
+      }).catch(() => {
+        // Si hay error de conexión, permitir acceso
+      });
     }
-
-    async function init() {
-      const session = await checkAccess();
-      if (session) {
-        // Iniciar timeout de sesión
-        SessionManager.init(() => {
-          alert('Sesión expirada por inactividad');
-          CookieManager.clearSesion();
-          window.location.href = 'login.html';
-        });
-        
-        createRoot(document.getElementById('root')).render(h(App, null));
-      }
-    }
-
-    init();
 
     /* HEADER */
     function Header({ user, onLogout }) {
@@ -639,6 +618,8 @@
         h(renderResetModal)
       );
     }
+
+    createRoot(document.getElementById('root')).render(h(App, null));
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));

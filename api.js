@@ -13,34 +13,6 @@ const CONFIG = {
 // GESTIÓN DE COOKIES Y SESIÓN
 // ============================================
 
-export const SessionManager = {
-  timeout: 30 * 60 * 1000, // 30 minutos
-  timer: null,
-
-  init(onTimeout) {
-    this.stop();
-    const reset = () => {
-      this.stop();
-      this.timer = setTimeout(onTimeout, this.timeout);
-    };
-
-    window.addEventListener('mousemove', reset);
-    window.addEventListener('keydown', reset);
-    window.addEventListener('click', reset);
-    window.addEventListener('scroll', reset);
-
-    reset();
-    return () => this.stop();
-  },
-
-  stop() {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
-  }
-};
-
 export const CookieManager = {
   get(name) {
     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
