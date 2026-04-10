@@ -1,7 +1,7 @@
-const CACHE_NAME = 'conteo-v4';
+const CACHE_NAME = 'conteo-v5';
 const DATA_CACHE = 'conteo-data-v2';
 const API_QUEUE = 'conteo-queue-v2';
-const VERSION = 'v=4';
+const VERSION = 'v=5';
 
 const STATIC_ASSETS = [
   '/Contador.html',
@@ -234,7 +234,16 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for local static assets
+  // Network-first for HTML (siempre trae la versión más nueva del servidor)
+  if (url.pathname.endsWith('.html') || url.pathname === '/') {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first para assets estáticos (CSS, JS, fuentes, manifest)
   if (url.origin === location.origin) {
     event.respondWith(
       caches.match(event.request)
