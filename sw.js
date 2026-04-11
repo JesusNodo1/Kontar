@@ -1,7 +1,7 @@
-const CACHE_NAME = 'conteo-v4';
+const CACHE_NAME = 'conteo-v5';
 const DATA_CACHE = 'conteo-data-v2';
 const API_QUEUE = 'conteo-queue-v2';
-const VERSION = 'v=4';
+const VERSION = 'v=5';
 
 const STATIC_ASSETS = [
   '/Contador.html',
@@ -234,28 +234,16 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Network-first for HTML pages (always get latest version)
-  if (url.pathname.endsWith('.html') || url.pathname === '/') {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
-    return;
-  }
-
-  // Cache-first for static assets (CSS, JS, fonts, manifest)
-  if (url.origin === location.origin) {
-    event.respondWith(
-      caches.match(event.request)
-        .then(response => response || fetch(event.request))
-    );
-    return;
-  }
+  // Network-first for all local files (always get latest version, cache as offline fallback)
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
+  );
 });
 
 async function handleApiRequest(request) {
