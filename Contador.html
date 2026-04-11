@@ -161,7 +161,8 @@
     async function apiGet(tabla, params = '') {
       try {
         const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}${params}`, {
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
+          cache: 'no-store'
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -194,7 +195,8 @@
         const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}`, {
           method: 'POST',
           headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-          body: JSON.stringify(data)
+          body: JSON.stringify(data),
+          cache: 'no-store'
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json();
@@ -219,7 +221,8 @@
         const res = await fetch(`${supabaseUrl}/rest/v1/${tabla}${params}`, {
           method: 'PATCH',
           headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+          body: JSON.stringify(data),
+          cache: 'no-store'
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();
@@ -1142,7 +1145,8 @@
         if (!sesion) { window.location.href = 'login.html'; return; }
         const deviceId = getDeviceId();
         fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${sesion.licencia_id}&select=id`, {
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
+          cache: 'no-store'
         }).then(res => res.json()).then(data => {
           if (!data || data.length === 0) {
             document.cookie = 'sesion=;path=/;max-age=0';

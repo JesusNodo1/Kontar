@@ -83,7 +83,8 @@ export const Api = {
     const limitParam = params.includes('limit=') ? '' : '&limit=100';
     try {
       const res = await fetchWithRetry(`${CONFIG.supabaseUrl}/rest/v1/${tabla}${params}${limitParam}`, {
-        headers: { 'apikey': CONFIG.supabaseKey, 'Authorization': `Bearer ${CONFIG.supabaseKey}` }
+        headers: { 'apikey': CONFIG.supabaseKey, 'Authorization': `Bearer ${CONFIG.supabaseKey}` },
+        cache: 'no-store'
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -98,13 +99,14 @@ export const Api = {
     try {
       const res = await fetchWithRetry(`${CONFIG.supabaseUrl}/rest/v1/${tabla}`, {
         method: 'POST',
-        headers: { 
-          'apikey': CONFIG.supabaseKey, 
-          'Authorization': `Bearer ${CONFIG.supabaseKey}`, 
-          'Content-Type': 'application/json', 
-          'Prefer': 'return=representation' 
+        headers: {
+          'apikey': CONFIG.supabaseKey,
+          'Authorization': `Bearer ${CONFIG.supabaseKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
+        cache: 'no-store'
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = await res.json();
@@ -119,13 +121,14 @@ export const Api = {
     try {
       const res = await fetchWithRetry(`${CONFIG.supabaseUrl}/rest/v1/${tabla}${params}`, {
         method: 'PATCH',
-        headers: { 
-          'apikey': CONFIG.supabaseKey, 
-          'Authorization': `Bearer ${CONFIG.supabaseKey}`, 
-          'Content-Type': 'application/json', 
-          'Prefer': 'return=representation' 
+        headers: {
+          'apikey': CONFIG.supabaseKey,
+          'Authorization': `Bearer ${CONFIG.supabaseKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
+        cache: 'no-store'
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = await res.json();
@@ -140,10 +143,11 @@ export const Api = {
     try {
       const res = await fetchWithRetry(`${CONFIG.supabaseUrl}/rest/v1/${tabla}${params}`, {
         method: 'DELETE',
-        headers: { 
-          'apikey': CONFIG.supabaseKey, 
+        headers: {
+          'apikey': CONFIG.supabaseKey,
           'Authorization': `Bearer ${CONFIG.supabaseKey}`
-        }
+        },
+        cache: 'no-store'
       });
       if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`);
       return { success: true };

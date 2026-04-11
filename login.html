@@ -94,7 +94,8 @@
           const deviceId = getDeviceId();
 
           const res = await fetch(`${supabaseUrl}/rest/v1/licencias?codigo=eq.${encodeURIComponent(codigo)}&select=*`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
+            cache: 'no-store'
           });
           const licencias = await res.json();
 
@@ -113,7 +114,8 @@
           }
 
           const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${licencia.id}&select=id`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
+            cache: 'no-store'
           });
           const dispositivoExistente = await devRes.json();
 
@@ -124,7 +126,8 @@
           }
 
           const devCountRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?licencia_id=eq.${licencia.id}&select=id`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
+            cache: 'no-store'
           });
           const devCount = await devCountRes.json();
           if (devCount && devCount.length >= licencia.limite_dispositivos) {
@@ -134,7 +137,8 @@
           }
 
           const userRes = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&licencia_id=eq.${licencia.id}&select=id,nombre,email,rol,estado,licencia_id`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
+            cache: 'no-store'
           });
           const userExistente = await userRes.json();
 
@@ -290,7 +294,8 @@
 
         try {
           const res = await fetch(`${supabaseUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(email)}&estado=eq.ACTIVO&select=id,nombre,email,rol,estado,licencia_id,password`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
+            cache: 'no-store'
           });
           const data = await res.json();
 
@@ -314,7 +319,8 @@
 
           const deviceId = getDeviceId();
           const devRes = await fetch(`${supabaseUrl}/rest/v1/dispositivos?dispositivo_id=eq.${encodeURIComponent(deviceId)}&licencia_id=eq.${usuario.licencia_id}&select=id`, {
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
+            cache: 'no-store'
           });
           const dispositivo = await devRes.json();
 
