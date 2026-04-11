@@ -1,20 +1,21 @@
-const CACHE_NAME = 'conteo-static';
+const CACHE_NAME = 'conteo-v4';
 const DATA_CACHE = 'conteo-data-v2';
 const API_QUEUE = 'conteo-queue-v2';
+const VERSION = 'v=4';
 
-// Solo assets locales para soporte offline.
-// Los CDN (React, fuentes) los maneja el caché del navegador — no el SW.
 const STATIC_ASSETS = [
   '/Contador.html',
   '/login.html',
   '/admin.html',
   '/styles.css',
   '/manifest.json',
-  '/api.js'
+  'https://cdn.jsdelivr.net/npm/react@18.3.1/+esm',
+  'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm',
+  'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap'
 ];
 
 const DB_NAME = 'ConteoOfflineDB';
-const DB_VERSION = 2;
+const DB_VERSION = 1;
 
 let db = null;
 
@@ -223,7 +224,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // No interceptar requests cross-origin (Supabase, CDN, Google Fonts)
+  // Don't intercept cross-origin requests (Supabase, CDN, Google Fonts)
   if (url.origin !== location.origin) {
     return;
   }
@@ -233,19 +234,28 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Network-first para assets locales:
-  // - Online: siempre trae la versión más reciente y actualiza el caché
-  // - Offline: cae al caché automáticamente
-  // → Nunca hace falta cambiar CACHE_NAME al deployar
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
+  // Network-first for HTML pages (always get latest version)
+  if (url.pathname.endsWith('.html') || url.pathname === '/') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for static assets (CSS, JS, fonts, manifest)
+  if (url.origin === location.origin) {
+    event.respondWith(
+      caches.match(event.request)
+        .then(response => response || fetch(event.request))
+    );
+    return;
+  }
 });
 
 async function handleApiRequest(request) {
