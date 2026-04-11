@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head><title>Limpiando cache...</title></head>
+<body>
+<h2 id="status">Limpiando cache, Service Worker e IndexedDB...</h2>
+<pre id="log"></pre>
+<script>
+const log = document.getElementById('log');
+const status = document.getElementById('status');
+function addLog(msg) { log.textContent += msg + '\n'; }
+
+(async () => {
+  try {
+    // 1. Desregistrar todos los Service Workers
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const r of regs) {
+      await r.unregister();
+      addLog('SW desregistrado: ' + r.scope);
+    }
+    if (regs.length === 0) addLog('No habia SW registrados');
+
+    // 2. Borrar todos los caches
+    const keys = await caches.keys();
+    for (const k of keys) {
+      await caches.delete(k);
+      addLog('Cache borrado: ' + k);
+    }
+    if (keys.length === 0) addLog('No habia caches');
+
+    // 3. Borrar IndexedDB
+    const dbs = await indexedDB.databases();
+    for (const db of dbs) {
+      indexedDB.deleteDatabase(db.name);
+      addLog('IndexedDB borrada: ' + db.name);
+    }
+    if (dbs.length === 0) addLog('No habia IndexedDB');
+
+    addLog('\n--- TODO LIMPIO ---');
+    status.textContent = 'Cache limpio. Redirigiendo en 2 segundos...';
+    status.style.color = 'green';
+    setTimeout(() => { window.location.href = 'login.html'; }, 2000);
+  } catch (e) {
+    addLog('Error: ' + e.message);
+    status.textContent = 'Error al limpiar. Intentá con Ctrl+Shift+Delete.';
+    status.style.color = 'red';
+  }
+})();
+</script>
+</body>
+</html>
